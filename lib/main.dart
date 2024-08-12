@@ -4,122 +4,289 @@ void main() {
   runApp(const MyApp());
 }
 
+// アプリ全体の構成を定義するクラス
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a blue toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+    return const MaterialApp(
+      title: 'Tic Tac Toe',
+      home: TicTacToe(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+// Tic Tac ToeのゲームロジックとUIを管理するクラス
+class TicTacToe extends StatefulWidget {
+  const TicTacToe({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  _TicTacToeState createState() => _TicTacToeState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _TicTacToeState extends State<TicTacToe> {
+  List<String> _board = List.generate(9, (index) => ' '); // ボードの初期化
+  bool _isX = true;
+  String _winner = '';
+  List<int> _winningBlocks = [];
+  List<int> _xMoves = []; // Xの移動履歴を追跡
+  List<int> _oMoves = []; // Oの移動履歴を追跡
+  int? _fadedIndex; // 薄い色に変更されるマークのインデックス
 
-  void _incrementCounter() {
+  void _resetBoard() {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _board = List.generate(9, (index) => ' '); // ボードをリセット時に再初期化
+      _isX = true;
+      _winner = '';
+      _winningBlocks = [];
+      _xMoves = [];
+      _oMoves = [];
+      _fadedIndex = null;
     });
+  }
+
+  void _handleTap(int index) {
+    // 既にマークがある場所、または勝者が決まった後の場所には置けないようにする
+    if (_board[index] != ' ' || _winner != '') return;
+
+    // 現在の3つのマークの中で最も古いマークが消える場所には置けないようにする
+    if (_isX && _xMoves.length == 3 && index == _xMoves[0]) return;
+    if (!_isX && _oMoves.length == 3 && index == _oMoves[0]) return;
+
+    // UIを更新
+    setState(() {
+      if (_isX) {
+        _board[index] = 'X';
+        _xMoves.add(index);
+        if (_xMoves.length > 3) {
+          int oldIndex = _xMoves.removeAt(0);
+          _board[oldIndex] = ' '; // 消されたマークの場所を空に戻す
+        }
+      } else {
+        _board[index] = 'O';
+        _oMoves.add(index);
+        if (_oMoves.length > 3) {
+          int oldIndex = _oMoves.removeAt(0);
+          _board[oldIndex] = ' '; // 消されたマークの場所を空に戻す
+        }
+      }
+
+      _winner = _checkWinner();
+      _isX = !_isX;
+
+      // 4つ目のマークが置かれる前に、最初のマークを薄く表示する
+      _handleMove();
+    });
+  }
+
+  void _handleMove() {
+    // 3つ前のマークを薄い色にするロジック
+    if (_isX && _xMoves.length == 3) {
+      _fadedIndex = _xMoves[0];
+    } else if (!_isX && _oMoves.length == 3) {
+      _fadedIndex = _oMoves[0];
+    } else {
+      _fadedIndex = null; // 3つ未満の場合は薄く表示するマークがない
+    }
+  }
+
+  String _checkWinner() {
+    const List<List<int>> winPatterns = [
+      [0, 1, 2],
+      [3, 4, 5],
+      [6, 7, 8],
+      [0, 3, 6],
+      [1, 4, 7],
+      [2, 5, 8],
+      [0, 4, 8],
+      [2, 4, 6],
+    ];
+
+    for (var pattern in winPatterns) {
+      String first = _board[pattern[0]];
+      if (first != ' ' &&
+          first == _board[pattern[1]] &&
+          first == _board[pattern[2]]) {
+        setState(() {
+          _winningBlocks = pattern;
+        });
+        return first;
+      }
+    }
+
+    return _board.contains(' ') ? '' : 'Draw';
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    Color topColor;
+    String topText;
+
+    if (_winner == 'X') {
+      topColor = Colors.redAccent;
+      topText = 'Player 1 Wins!';
+    } else if (_winner == 'O') {
+      topColor = Colors.blueAccent;
+      topText = 'Player 2 Wins!';
+    } else {
+      topColor = _isX ? Colors.redAccent : Colors.blueAccent;
+      topText = _isX ? 'Player 1' : 'Player 2';
+    }
+
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
+      body: Column(
+        children: <Widget>[
+          Container(
+            padding: const EdgeInsets.only(bottom: 10), // 下部にスペースを追加してさらに下に配置
+            decoration: BoxDecoration(
+              color: topColor,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(80),
+                bottomRight: Radius.circular(80),
+              ),
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+            alignment: Alignment.bottomCenter, // 下揃えに設定
+            height: 100, // コンテナの高さを指定
+            child: Text(
+              topText,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
             ),
-          ],
-        ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                Column(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Colors.redAccent,
+                      radius: 40,
+                      child: Icon(Icons.person, color: Colors.white, size: 72),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Player 1',
+                      style: TextStyle(color: Colors.black, fontSize: 20),
+                    ),
+                  ],
+                ),
+                SizedBox(width: 40),
+                Text(
+                  'VS',
+                  style: TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(width: 40),
+                Column(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Colors.blueAccent,
+                      radius: 40,
+                      child: Icon(Icons.person, color: Colors.white, size: 72),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Player 2',
+                      style: TextStyle(color: Colors.black, fontSize: 20),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Container(
+              color: Colors.grey[300],
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  _buildBoard(),
+                  const SizedBox(height: 50),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber,
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    onPressed: _resetBoard,
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.refresh, color: Colors.white),
+                        SizedBox(width: 10),
+                        Text('RESET', style: TextStyle(color: Colors.white, fontSize: 18)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+    );
+  }
+
+  Widget _buildBoard() {
+    return GridView.builder(
+      shrinkWrap: true,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        childAspectRatio: 1.0,
+      ),
+      itemCount: 9,
+      itemBuilder: (context, index) {
+        Color blockColor = Colors.white;
+        Color textColor;
+
+        if (_winningBlocks.contains(index)) {
+          blockColor = _board[index] == 'X' ? Colors.redAccent : Colors.blueAccent;
+          textColor = Colors.white;
+        } else if (_fadedIndex != null && index == _fadedIndex) {
+          // 3つ前のマークを薄い色で表示
+          textColor = _board[index] == 'X'
+              ? Colors.redAccent.withOpacity(0.3)
+              : Colors.blueAccent.withOpacity(0.3);
+        } else {
+          textColor = _board[index] == 'X'
+              ? Colors.redAccent
+              : _board[index] == 'O'
+              ? Colors.blueAccent
+              : Colors.transparent;
+        }
+
+        return GestureDetector(
+          onTap: () => _handleTap(index),
+          child: Container(
+            padding: const EdgeInsets.only(bottom: 10), // 下部にスペースを追加してさらに下に配置
+            margin: const EdgeInsets.all(4.0),
+            decoration: BoxDecoration(
+              color: blockColor,
+              borderRadius: BorderRadius.circular(8.0),
+            ),
+            child: Center(
+              child: Text(
+                _board[index].trim(), // 空白をトリミングして正しい表示を確認
+                style: TextStyle(
+                  fontSize: 100,
+                  fontWeight: FontWeight.bold,
+                  color: textColor, // 色を明示的に設定
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
