@@ -1,6 +1,9 @@
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter/material.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  MobileAds.instance.initialize();
   runApp(const MyApp());
 }
 
@@ -26,6 +29,9 @@ class TicTacToe extends StatefulWidget {
 }
 
 class _TicTacToeState extends State<TicTacToe> {
+  BannerAd? _bannerAd;
+  bool _isAdLoaded = false;
+
   List<String> _board = List.generate(9, (index) => ' '); // ボードの初期化
   bool _isX = true;
   String _winner = '';
@@ -33,6 +39,30 @@ class _TicTacToeState extends State<TicTacToe> {
   List<int> _xMoves = []; // Xの移動履歴を追跡
   List<int> _oMoves = []; // Oの移動履歴を追跡
   int? _fadedIndex; // 薄い色に変更されるマークのインデックス
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBannerAd();
+  }
+
+  void _loadBannerAd() {
+    _bannerAd = BannerAd(
+      size: AdSize.banner,
+      adUnitId: 'ca-app-pub-1187210314934709/7887834192', // ここに実際のAdMobの広告ユニットIDを入れる
+      listener: BannerAdListener(
+        onAdLoaded: (_) {
+          setState(() {
+            _isAdLoaded = true;
+          });
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+        },
+      ),
+      request: const AdRequest(),
+    )..load();
+  }
 
   void _resetBoard() {
     setState(() {
@@ -47,47 +77,42 @@ class _TicTacToeState extends State<TicTacToe> {
   }
 
   void _handleTap(int index) {
-    // 既にマークがある場所、または勝者が決まった後の場所には置けないようにする
     if (_board[index] != ' ' || _winner != '') return;
 
-    // 現在の3つのマークの中で最も古いマークが消える場所には置けないようにする
     if (_isX && _xMoves.length == 3 && index == _xMoves[0]) return;
     if (!_isX && _oMoves.length == 3 && index == _oMoves[0]) return;
 
-    // UIを更新
     setState(() {
       if (_isX) {
         _board[index] = 'X';
         _xMoves.add(index);
         if (_xMoves.length > 3) {
           int oldIndex = _xMoves.removeAt(0);
-          _board[oldIndex] = ' '; // 消されたマークの場所を空に戻す
+          _board[oldIndex] = ' ';
         }
       } else {
         _board[index] = 'O';
         _oMoves.add(index);
         if (_oMoves.length > 3) {
           int oldIndex = _oMoves.removeAt(0);
-          _board[oldIndex] = ' '; // 消されたマークの場所を空に戻す
+          _board[oldIndex] = ' ';
         }
       }
 
       _winner = _checkWinner();
       _isX = !_isX;
 
-      // 4つ目のマークが置かれる前に、最初のマークを薄く表示する
       _handleMove();
     });
   }
 
   void _handleMove() {
-    // 3つ前のマークを薄い色にするロジック
     if (_isX && _xMoves.length == 3) {
       _fadedIndex = _xMoves[0];
     } else if (!_isX && _oMoves.length == 3) {
       _fadedIndex = _oMoves[0];
     } else {
-      _fadedIndex = null; // 3つ未満の場合は薄く表示するマークがない
+      _fadedIndex = null;
     }
   }
 
@@ -138,7 +163,7 @@ class _TicTacToeState extends State<TicTacToe> {
       body: Column(
         children: <Widget>[
           Container(
-            padding: const EdgeInsets.only(bottom: 10), // 下部にスペースを追加してさらに下に配置
+            padding: const EdgeInsets.only(bottom: 10),
             decoration: BoxDecoration(
               color: topColor,
               borderRadius: const BorderRadius.only(
@@ -146,8 +171,8 @@ class _TicTacToeState extends State<TicTacToe> {
                 bottomRight: Radius.circular(80),
               ),
             ),
-            alignment: Alignment.bottomCenter, // 下揃えに設定
-            height: 100, // コンテナの高さを指定
+            alignment: Alignment.bottomCenter,
+            height: 100,
             child: Text(
               topText,
               style: const TextStyle(
@@ -206,10 +231,10 @@ class _TicTacToeState extends State<TicTacToe> {
             child: Container(
               color: Colors.grey[300],
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
+                  const SizedBox(height: 0),
                   _buildBoard(),
-                  const SizedBox(height: 50),
+                  const SizedBox(height: 20),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.amber,
@@ -232,6 +257,13 @@ class _TicTacToeState extends State<TicTacToe> {
               ),
             ),
           ),
+          if (_isAdLoaded)
+            Container(
+              alignment: Alignment.bottomCenter,
+              width: _bannerAd!.size.width.toDouble(),
+              height: _bannerAd!.size.height.toDouble(),
+              child: AdWidget(ad: _bannerAd!),
+            ),
         ],
       ),
     );
@@ -253,7 +285,6 @@ class _TicTacToeState extends State<TicTacToe> {
           blockColor = _board[index] == 'X' ? Colors.redAccent : Colors.blueAccent;
           textColor = Colors.white;
         } else if (_fadedIndex != null && index == _fadedIndex) {
-          // 3つ前のマークを薄い色で表示
           textColor = _board[index] == 'X'
               ? Colors.redAccent.withOpacity(0.3)
               : Colors.blueAccent.withOpacity(0.3);
@@ -268,7 +299,7 @@ class _TicTacToeState extends State<TicTacToe> {
         return GestureDetector(
           onTap: () => _handleTap(index),
           child: Container(
-            padding: const EdgeInsets.only(bottom: 10), // 下部にスペースを追加してさらに下に配置
+            padding: const EdgeInsets.only(bottom: 10),
             margin: const EdgeInsets.all(4.0),
             decoration: BoxDecoration(
               color: blockColor,
@@ -276,11 +307,11 @@ class _TicTacToeState extends State<TicTacToe> {
             ),
             child: Center(
               child: Text(
-                _board[index].trim(), // 空白をトリミングして正しい表示を確認
+                _board[index].trim(),
                 style: TextStyle(
                   fontSize: 100,
                   fontWeight: FontWeight.bold,
-                  color: textColor, // 色を明示的に設定
+                  color: textColor,
                 ),
               ),
             ),
