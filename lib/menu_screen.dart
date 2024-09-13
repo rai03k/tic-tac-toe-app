@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'main.dart';  // main.dartをインポートして、1vs1画面に遷移できるようにします。
+import 'main.dart';  // 1vs1ゲーム画面をインポート
+import 'ai.dart';  // 1vsAIゲーム画面をインポート
 
 class MenuScreen extends StatelessWidget {
   @override
@@ -29,11 +30,19 @@ class MenuScreen extends StatelessWidget {
               Icons.person,
               Icons.smart_toy,
               '1 vs AI',
-              Colors.grey, // 未実装なのでグレー
-              false,       // ボタン無効化
-              null,        // ボタン無効
+              null, // 有効化してカスタム色を指定するためにnull
+              true, // ボタン有効化
+                  () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const TicTacToeAI()), // 1vsAIのゲーム画面に遷移
+                );
+              },
+              gradient: LinearGradient(
+                colors: [Colors.blue, Colors.blue]
+              ),
             ),
-            const SizedBox(height: 40),  // ボタン間の余白を調整 (30ピクセル)
+            const SizedBox(height: 40),  // ボタン間の余白を調整
             buildMenuOption(
               context,
               Icons.person,
@@ -53,7 +62,7 @@ class MenuScreen extends StatelessWidget {
                 end: Alignment.centerRight,
               ),
             ),
-            const SizedBox(height: 40),  // ボタン間の余白を調整 (30ピクセル)
+            const SizedBox(height: 40),  // ボタン間の余白を調整
             buildMenuOption(
               context,
               Icons.person,
