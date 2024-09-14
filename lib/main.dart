@@ -264,55 +264,58 @@ class _TicTacToeState extends State<TicTacToe> {
 
 
   Widget _buildBoard() {
-    return GridView.builder(
-      shrinkWrap: true,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 1.0,
-      ),
-      itemCount: 9,
-      itemBuilder: (context, index) {
-        Color blockColor = Colors.white;
-        Color textColor;
+    return Container(
+      height: MediaQuery.of(context).size.width * 1.2, // 高さをデバイスの幅より少し広げる
+      child: GridView.builder(
+        physics: const NeverScrollableScrollPhysics(), // スクロールを無効化
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          childAspectRatio: 1.0,
+        ),
+        itemCount: 9,
+        itemBuilder: (context, index) {
+          Color blockColor = Colors.white;
+          Color textColor;
 
-        if (_winningBlocks.contains(index)) {
-          blockColor = _board[index] == 'X' ? Colors.redAccent : Colors.blueAccent;
-          textColor = Colors.white;
-        } else if (_fadedIndex != null && index == _fadedIndex) {
-          // 3つ前のマークを薄い色で表示
-          textColor = _board[index] == 'X'
-              ? Colors.redAccent.withOpacity(0.3)
-              : Colors.blueAccent.withOpacity(0.3);
-        } else {
-          textColor = _board[index] == 'X'
-              ? Colors.redAccent
-              : _board[index] == 'O'
-              ? Colors.blueAccent
-              : Colors.transparent;
-        }
+          if (_winningBlocks.contains(index)) {
+            blockColor = _board[index] == 'X' ? Colors.redAccent : Colors.blueAccent;
+            textColor = Colors.white;
+          } else if (_fadedIndex != null && index == _fadedIndex) {
+            // 3つ前のマークを薄い色で表示
+            textColor = _board[index] == 'X'
+                ? Colors.redAccent.withOpacity(0.3)
+                : Colors.blueAccent.withOpacity(0.3);
+          } else {
+            textColor = _board[index] == 'X'
+                ? Colors.redAccent
+                : _board[index] == 'O'
+                ? Colors.blueAccent
+                : Colors.transparent;
+          }
 
-        return GestureDetector(
-          onTap: () => _handleTap(index),
-          child: Container(
-            padding: const EdgeInsets.only(bottom: 10), // 下部にスペースを追加してさらに下に配置
-            margin: const EdgeInsets.all(4.0),
-            decoration: BoxDecoration(
-              color: blockColor,
-              borderRadius: BorderRadius.circular(8.0),
-            ),
-            child: Center(
-              child: Text(
-                _board[index].trim(), // 空白をトリミングして正しい表示を確認
-                style: TextStyle(
-                  fontSize: 100,
-                  fontWeight: FontWeight.bold,
-                  color: textColor, // 色を明示的に設定
+          return GestureDetector(
+            onTap: () => _handleTap(index),
+            child: Container(
+              padding: const EdgeInsets.only(bottom: 10), // 下部にスペースを追加
+              margin: const EdgeInsets.all(4.0),
+              decoration: BoxDecoration(
+                color: blockColor,
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              child: Center(
+                child: Text(
+                  _board[index].trim(), // 空白をトリミングして正しい表示を確認
+                  style: TextStyle(
+                    fontSize: 100,
+                    fontWeight: FontWeight.bold,
+                    color: textColor, // 色を明示的に設定
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

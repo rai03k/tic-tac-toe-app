@@ -306,59 +306,60 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
     );
   }
   Widget _buildBoard() {
-    return GridView.builder(
-      shrinkWrap: true,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 1.0,
-      ),
-      itemCount: 9,
-      itemBuilder: (context, index) {
-        Color blockColor = Colors.white;
-        Color textColor;
+    return Container(
+      height: MediaQuery.of(context).size.width * 1.2, // デバイスの幅を基に少し高さを広げる
+      child: GridView.builder(
+        physics: const NeverScrollableScrollPhysics(), // スクロールを無効にする
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          childAspectRatio: 1.0,
+        ),
+        itemCount: 9,
+        itemBuilder: (context, index) {
+          Color blockColor = Colors.white;
+          Color textColor;
 
-        if (_winner.isNotEmpty && _winningBlocks.contains(index)) {
-          // 勝者が決定した後に色を反転
-          blockColor = _board[index] == 'X' ? Colors.redAccent : Colors.blueAccent;
-          textColor = Colors.white;
-        } else if (_fadedIndex != null && index == _fadedIndex) {
-          // 4つ前のマークを薄い色にする
-          textColor = _board[index] == 'X'
-              ? Colors.redAccent.withOpacity(0.3)
-              : Colors.blueAccent.withOpacity(0.3);
-        } else {
-          // 勝者がいない場合、通常の色を適用
-          textColor = _board[index] == 'X'
-              ? Colors.redAccent
-              : _board[index] == 'O'
-              ? Colors.blueAccent
-              : Colors.transparent;
-        }
+          if (_winner.isNotEmpty && _winningBlocks.contains(index)) {
+            // 勝者が決定した後に色を反転
+            blockColor = _board[index] == 'X' ? Colors.redAccent : Colors.blueAccent;
+            textColor = Colors.white;
+          } else if (_fadedIndex != null && index == _fadedIndex) {
+            // 4つ前のマークを薄い色にする
+            textColor = _board[index] == 'X'
+                ? Colors.redAccent.withOpacity(0.3)
+                : Colors.blueAccent.withOpacity(0.3);
+          } else {
+            // 勝者がいない場合、通常の色を適用
+            textColor = _board[index] == 'X'
+                ? Colors.redAccent
+                : _board[index] == 'O'
+                ? Colors.blueAccent
+                : Colors.transparent;
+          }
 
-        return GestureDetector(
-          onTap: () => _handleTap(index),
-          child: Container(
-            padding: const EdgeInsets.only(bottom: 10),
-            margin: const EdgeInsets.all(4.0),
-            decoration: BoxDecoration(
-              color: blockColor,
-              borderRadius: BorderRadius.circular(8.0),
-            ),
-            child: Center(
-              child: Text(
-                _board[index].trim(),
-                style: TextStyle(
-                  fontSize: 100,
-                  fontWeight: FontWeight.bold,
-                  color: textColor,
+          return GestureDetector(
+            onTap: () => _handleTap(index),
+            child: Container(
+              padding: const EdgeInsets.only(bottom: 10),
+              margin: const EdgeInsets.all(4.0),
+              decoration: BoxDecoration(
+                color: blockColor,
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              child: Center(
+                child: Text(
+                  _board[index].trim(),
+                  style: TextStyle(
+                    fontSize: 100,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
-
-
 }
