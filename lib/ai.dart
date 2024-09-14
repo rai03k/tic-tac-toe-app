@@ -32,6 +32,7 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
   List<int> _xMoves = []; // Xの移動履歴を追跡
   List<int> _oMoves = []; // Oの移動履歴を追跡
   int? _fadedIndex; // 薄い色に変更されるマークのインデックス
+  bool _isAITurn = false; // AIのターンを管理するフラグ
 
   void _resetBoard() {
     setState(() {
@@ -42,11 +43,12 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
       _xMoves = [];
       _oMoves = [];
       _fadedIndex = null;
+      _isAITurn = false; // リセット時にAIのターンを初期化
     });
   }
 
   void _handleTap(int index) {
-    if (_board[index] != ' ' || _winner != '') return;
+    if (_board[index] != ' ' || _winner != '' || _isAITurn) return; // AIのターン中はタップ無効
 
     setState(() {
       _board[index] = 'X';
@@ -57,7 +59,10 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
       }
 
       _winner = _checkWinner();
-      if (_winner == '') _aiMove();  // 勝者がいなければAIのターン
+      if (_winner == '') {
+        _isAITurn = true;  // AIのターンを開始前にセット
+        _aiMove();  // 勝者がいなければAIのターン
+      }
     });
   }
 
@@ -74,11 +79,13 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
 
       _winner = _checkWinner();
       _isX = !_isX;
+      _isAITurn = false; // AIのターン終了時にセット解除
 
       // 4つ目のマークが置かれる前に、最初のマークを薄く表示する
       _handleMove();
     });
   }
+
 
 
   void _handleMove() {
