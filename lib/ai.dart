@@ -73,8 +73,26 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
       }
 
       _winner = _checkWinner();
+      _isX = !_isX;
+
+      // 4つ目のマークが置かれる前に、最初のマークを薄く表示する
+      _handleMove();
     });
   }
+
+
+  void _handleMove() {
+    // 4つ前のマークを薄い色にするロジック
+    if (!_isX && _xMoves.length >= 3) {
+      _fadedIndex = _xMoves[0];
+    } else if (_isX && _oMoves.length >= 3) {
+      _fadedIndex = _oMoves[0];
+    } else {
+      _fadedIndex = null; // 3つ未満の場合は薄く表示するマークがない
+    }
+  }
+
+
 
   String _checkWinner() {
     const List<List<int>> winPatterns = [
@@ -296,6 +314,11 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
           // 勝者が決定した後に色を反転
           blockColor = _board[index] == 'X' ? Colors.redAccent : Colors.blueAccent;
           textColor = Colors.white;
+        } else if (_fadedIndex != null && index == _fadedIndex) {
+          // 4つ前のマークを薄い色にする
+          textColor = _board[index] == 'X'
+              ? Colors.redAccent.withOpacity(0.3)
+              : Colors.blueAccent.withOpacity(0.3);
         } else {
           // 勝者がいない場合、通常の色を適用
           textColor = _board[index] == 'X'
@@ -329,4 +352,6 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
       },
     );
   }
+
+
 }
