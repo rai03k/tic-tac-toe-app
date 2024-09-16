@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'menu_screen.dart';  // menu_screen.dartをインポート
 
 void main() {
   runApp(const MyApp());
@@ -10,9 +11,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       title: 'Tic Tac Toe',
-      home: TicTacToe(),
+      home: MenuScreen(),  // 最初にメニュー画面を表示
     );
   }
 }
@@ -135,101 +136,125 @@ class _TicTacToeState extends State<TicTacToe> {
     }
 
     return Scaffold(
-      body: Column(
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.only(bottom: 10), // 下部にスペースを追加してさらに下に配置
-            decoration: BoxDecoration(
-              color: topColor,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(80),
-                bottomRight: Radius.circular(80),
+      body: Stack(
+        children: [
+          Column(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  color: topColor,
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(80),
+                    bottomRight: Radius.circular(80),
+                  ),
+                ),
+                alignment: Alignment.bottomCenter,
+                height: 100,
+                child: Text(
+                  topText,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ),
-            ),
-            alignment: Alignment.bottomCenter, // 下揃えに設定
-            height: 100, // コンテナの高さを指定
-            child: Text(
-              topText,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[
-                Column(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: Colors.redAccent,
-                      radius: 40,
-                      child: Icon(Icons.person, color: Colors.white, size: 72),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Player 1',
-                      style: TextStyle(color: Colors.black, fontSize: 20),
-                    ),
-                  ],
-                ),
-                SizedBox(width: 40),
-                Text(
-                  'VS',
-                  style: TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(width: 40),
-                Column(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: Colors.blueAccent,
-                      radius: 40,
-                      child: Icon(Icons.person, color: Colors.white, size: 72),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Player 2',
-                      style: TextStyle(color: Colors.black, fontSize: 20),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Container(
-              color: Colors.grey[300],
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  _buildBoard(),
-                  const SizedBox(height: 50),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                    onPressed: _resetBoard,
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    Column(
                       children: [
-                        Icon(Icons.refresh, color: Colors.white),
-                        SizedBox(width: 10),
-                        Text('RESET', style: TextStyle(color: Colors.white, fontSize: 18)),
+                        CircleAvatar(
+                          backgroundColor: Colors.redAccent,
+                          radius: 40,
+                          child: Icon(Icons.person, color: Colors.white, size: 72),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Player 1',
+                          style: TextStyle(color: Colors.black, fontSize: 20),
+                        ),
                       ],
                     ),
-                  ),
-                ],
+                    SizedBox(width: 40),
+                    Text(
+                      'VS',
+                      style: TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(width: 40),
+                    Column(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: Colors.blueAccent,
+                          radius: 40,
+                          child: Icon(Icons.person, color: Colors.white, size: 72),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Player 2',
+                          style: TextStyle(color: Colors.black, fontSize: 20),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
+              Expanded(
+                flex: 2,
+                child: Container(
+                  color: Colors.grey[300],
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      _buildBoard(),
+                      const SizedBox(height: 50),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.amber,
+                          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
+                        onPressed: _resetBoard,
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.refresh, color: Colors.white),
+                            SizedBox(width: 10),
+                            Text('RESET', style: TextStyle(color: Colors.white, fontSize: 18)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Positioned(
+            top: 30,
+            left: 0,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, size: 55),
+              onPressed: () {
+                Navigator.pop(context);  // メニューに戻る
+              },
+            ),
+          ),
+          Positioned(
+            top: 30,
+            right: 0,
+            child: IconButton(
+              icon: const Icon(Icons.menu, size: 55), // 三（ハンバーガーメニュー）のアイコン
+              onPressed: () {
+                Navigator.pop(context);  // メニューに戻る
+              },
             ),
           ),
         ],
@@ -237,56 +262,60 @@ class _TicTacToeState extends State<TicTacToe> {
     );
   }
 
+
   Widget _buildBoard() {
-    return GridView.builder(
-      shrinkWrap: true,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 1.0,
-      ),
-      itemCount: 9,
-      itemBuilder: (context, index) {
-        Color blockColor = Colors.white;
-        Color textColor;
+    return Container(
+      height: MediaQuery.of(context).size.width * 1.2, // 高さをデバイスの幅より少し広げる
+      child: GridView.builder(
+        physics: const NeverScrollableScrollPhysics(), // スクロールを無効化
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          childAspectRatio: 1.0,
+        ),
+        itemCount: 9,
+        itemBuilder: (context, index) {
+          Color blockColor = Colors.white;
+          Color textColor;
 
-        if (_winningBlocks.contains(index)) {
-          blockColor = _board[index] == 'X' ? Colors.redAccent : Colors.blueAccent;
-          textColor = Colors.white;
-        } else if (_fadedIndex != null && index == _fadedIndex) {
-          // 3つ前のマークを薄い色で表示
-          textColor = _board[index] == 'X'
-              ? Colors.redAccent.withOpacity(0.3)
-              : Colors.blueAccent.withOpacity(0.3);
-        } else {
-          textColor = _board[index] == 'X'
-              ? Colors.redAccent
-              : _board[index] == 'O'
-              ? Colors.blueAccent
-              : Colors.transparent;
-        }
+          if (_winningBlocks.contains(index)) {
+            blockColor = _board[index] == 'X' ? Colors.redAccent : Colors.blueAccent;
+            textColor = Colors.white;
+          } else if (_fadedIndex != null && index == _fadedIndex) {
+            // 3つ前のマークを薄い色で表示
+            textColor = _board[index] == 'X'
+                ? Colors.redAccent.withOpacity(0.3)
+                : Colors.blueAccent.withOpacity(0.3);
+          } else {
+            textColor = _board[index] == 'X'
+                ? Colors.redAccent
+                : _board[index] == 'O'
+                ? Colors.blueAccent
+                : Colors.transparent;
+          }
 
-        return GestureDetector(
-          onTap: () => _handleTap(index),
-          child: Container(
-            padding: const EdgeInsets.only(bottom: 10), // 下部にスペースを追加してさらに下に配置
-            margin: const EdgeInsets.all(4.0),
-            decoration: BoxDecoration(
-              color: blockColor,
-              borderRadius: BorderRadius.circular(8.0),
-            ),
-            child: Center(
-              child: Text(
-                _board[index].trim(), // 空白をトリミングして正しい表示を確認
-                style: TextStyle(
-                  fontSize: 100,
-                  fontWeight: FontWeight.bold,
-                  color: textColor, // 色を明示的に設定
+          return GestureDetector(
+            onTap: () => _handleTap(index),
+            child: Container(
+              padding: const EdgeInsets.only(bottom: 10), // 下部にスペースを追加
+              margin: const EdgeInsets.all(4.0),
+              decoration: BoxDecoration(
+                color: blockColor,
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              child: Center(
+                child: Text(
+                  _board[index].trim(), // 空白をトリミングして正しい表示を確認
+                  style: TextStyle(
+                    fontSize: 100,
+                    fontWeight: FontWeight.bold,
+                    color: textColor, // 色を明示的に設定
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
