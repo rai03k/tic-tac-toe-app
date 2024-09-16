@@ -51,7 +51,7 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
     if (_board[index] != ' ' || _winner != '' || _isAITurn) return; // AIのターン中はタップ無効
 
     setState(() {
-      _board[index] = 'X';
+      _board[index] = '×';  // "X"を"×"に変更
       _xMoves.add(index);
       if (_xMoves.length > 3) {
         int oldIndex = _xMoves.removeAt(0);
@@ -70,7 +70,7 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
     await Future.delayed(const Duration(milliseconds: 500));
     int bestMove = _findBestMove(_board);
     setState(() {
-      _board[bestMove] = 'O';
+      _board[bestMove] = '○';  // "O"を"○"に変更
       _oMoves.add(bestMove);
       if (_oMoves.length > 3) {
         int oldIndex = _oMoves.removeAt(0);
@@ -81,12 +81,9 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
       _isX = !_isX;
       _isAITurn = false; // AIのターン終了時にセット解除
 
-      // 4つ目のマークが置かれる前に、最初のマークを薄く表示する
       _handleMove();
     });
   }
-
-
 
   void _handleMove() {
     // 4つ前のマークを薄い色にするロジック
@@ -98,8 +95,6 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
       _fadedIndex = null; // 3つ未満の場合は薄く表示するマークがない
     }
   }
-
-
 
   String _checkWinner() {
     const List<List<int>> winPatterns = [
@@ -126,7 +121,7 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
     int bestMove = -1;
     for (int i = 0; i < board.length; i++) {
       if (board[i] == ' ') {
-        board[i] = 'O';
+        board[i] = '○';  // AIの手を"○"に変更
         int score = _minimax(board, 0, false);
         board[i] = ' ';
         if (score > bestScore) {
@@ -144,15 +139,15 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
       return 0;
     }
     String result = _checkWinner();
-    if (result == 'X') return -10 + depth;
-    if (result == 'O') return 10 - depth;
+    if (result == '×') return -10 + depth;
+    if (result == '○') return 10 - depth;
     if (result == 'Draw') return 0;
 
     if (isMaximizing) {
       int bestScore = -1000;
       for (int i = 0; i < board.length; i++) {
         if (board[i] == ' ') {
-          board[i] = 'O';
+          board[i] = '○';
           int score = _minimax(board, depth + 1, false);
           board[i] = ' ';
           bestScore = score > bestScore ? score : bestScore;
@@ -163,7 +158,7 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
       int bestScore = 1000;
       for (int i = 0; i < board.length; i++) {
         if (board[i] == ' ') {
-          board[i] = 'X';
+          board[i] = '×';
           int score = _minimax(board, depth + 1, true);
           board[i] = ' ';
           bestScore = score < bestScore ? score : bestScore;
@@ -178,10 +173,10 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
     Color topColor;
     String topText;
 
-    if (_winner == 'X') {
+    if (_winner == '×') {
       topColor = Colors.redAccent;
       topText = 'Player 1 Wins!';
-    } else if (_winner == 'O') {
+    } else if (_winner == '○') {
       topColor = Colors.blueAccent;
       topText = 'AI Wins!';
     } else {
@@ -305,34 +300,39 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
       ),
     );
   }
+
   Widget _buildBoard() {
+    // デバイスの幅を取得してスケールに基づいてフォントサイズを調整
+    double deviceWidth = MediaQuery.of(context).size.width;
+    double baseFontSize = deviceWidth * 0.15; // 基準としてデバイス幅の15%をフォントサイズに設定
+
     return Container(
-      height: MediaQuery.of(context).size.width * 1.2, // デバイスの幅を基に少し高さを広げる
+      height: deviceWidth * 1.2, // デバイスの幅を基に少し高さを広げる
       child: GridView.builder(
         physics: const NeverScrollableScrollPhysics(), // スクロールを無効にする
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          childAspectRatio: 1.0,
+          crossAxisCount: 3, // 3列にする
+          childAspectRatio: 1.0, // 正方形にする
         ),
-        itemCount: 9,
+        itemCount: 9, // 9マス
         itemBuilder: (context, index) {
           Color blockColor = Colors.white;
           Color textColor;
 
           if (_winner.isNotEmpty && _winningBlocks.contains(index)) {
             // 勝者が決定した後に色を反転
-            blockColor = _board[index] == 'X' ? Colors.redAccent : Colors.blueAccent;
+            blockColor = _board[index] == '×' ? Colors.redAccent : Colors.blueAccent;
             textColor = Colors.white;
           } else if (_fadedIndex != null && index == _fadedIndex) {
             // 4つ前のマークを薄い色にする
-            textColor = _board[index] == 'X'
+            textColor = _board[index] == '×'
                 ? Colors.redAccent.withOpacity(0.3)
                 : Colors.blueAccent.withOpacity(0.3);
           } else {
             // 勝者がいない場合、通常の色を適用
-            textColor = _board[index] == 'X'
+            textColor = _board[index] == '×'
                 ? Colors.redAccent
-                : _board[index] == 'O'
+                : _board[index] == '○'
                 ? Colors.blueAccent
                 : Colors.transparent;
           }
@@ -340,21 +340,27 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
           return GestureDetector(
             onTap: () => _handleTap(index),
             child: Container(
-              padding: const EdgeInsets.only(bottom: 10),
-              margin: const EdgeInsets.all(4.0),
+              margin: const EdgeInsets.all(4.0), // グリッドアイテムの余白を元に戻す
               decoration: BoxDecoration(
                 color: blockColor,
                 borderRadius: BorderRadius.circular(8.0),
               ),
-              child: Center(
-                child: Text(
-                  _board[index].trim(),
-                  style: TextStyle(
-                    fontSize: 100,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                  ),
-                ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // マスのサイズに基づいてフォントサイズを決定
+                  double fontSize = baseFontSize; // デバイス全体の幅に基づいて一貫したフォントサイズ
+
+                  return Center(
+                    child: Text(
+                      _board[index] != ' ' ? _board[index] : '',  // 空白かどうかをチェック
+                      style: TextStyle(
+                        fontSize: fontSize, // 一貫したフォントサイズを設定
+                        fontWeight: FontWeight.bold,
+                        color: textColor,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           );
@@ -362,4 +368,6 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
       ),
     );
   }
+
+
 }
