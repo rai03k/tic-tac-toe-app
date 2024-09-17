@@ -1,22 +1,30 @@
 import 'package:flutter/material.dart';
 import 'menu_screen.dart';  // menu_screen.dartをインポート
+import 'package:device_preview/device_preview.dart';
+import 'package:flutter/foundation.dart';  // kReleaseMode用
 
-void main() {
-  runApp(const MyApp());
-}
+void main() => runApp(
+  DevicePreview(
+    enabled: !kReleaseMode, // リリースモードでは無効化する
+    builder: (context) => MyApp(), // アプリの起動
+  ),
+);
 
-// アプリ全体の構成を定義するクラス
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      useInheritedMediaQuery: true,  // これがDevicePreviewに必要
+      locale: DevicePreview.locale(context), // DevicePreviewのロケールを適用
+      builder: DevicePreview.appBuilder, // DevicePreviewのビルダーを適用
       title: 'Tic Tac Toe',
       home: MenuScreen(),  // 最初にメニュー画面を表示
     );
   }
 }
+
 
 // Tic Tac ToeのゲームロジックとUIを管理するクラス
 class TicTacToe extends StatefulWidget {

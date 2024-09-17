@@ -170,6 +170,12 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
 
   @override
   Widget build(BuildContext context) {
+    // MediaQueryを使用してデバイスの高さと幅を取得
+    double screenHeight = MediaQuery.of(context).size.height;
+    double screenWidth = MediaQuery.of(context).size.width;
+
+    // タブレットかモバイルかを判定（幅600px以下の場合モバイルとみなす）
+    bool isMobile = screenWidth < 600;
     Color topColor;
     String topText;
 
@@ -199,7 +205,7 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
                   ),
                 ),
                 alignment: Alignment.bottomCenter,
-                height: 100,
+                height: screenHeight * 0.15,  // 高さを画面全体の15%に設定
                 child: Text(
                   topText,
                   style: const TextStyle(
@@ -256,38 +262,45 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
               Expanded(
                 flex: 2,
                 child: Container(
-                  color: Colors.grey[300],
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      _buildBoard(),
-                      const SizedBox(height: 50),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.amber,
-                          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
+                  width: screenWidth, // 背景の幅を画面全体の幅に合わせる
+                  color: Colors.grey[300], // ゲームボードエリアの背景色
+                  child: Transform.translate(
+                    offset: isMobile ? const Offset(0, -30) : Offset.zero,  // モバイル時のみ30px上に移動
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Center(child: _buildBoard()), // ボードを画面全体の背景の中央に配置
+                        const SizedBox(height: 20),
+                        Transform.translate(
+                          offset: isMobile ? const Offset(0, -20) : Offset.zero,  // モバイル時のみさらに20px上に移動
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.amber,
+                              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                            ),
+                            onPressed: _resetBoard,
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.refresh, color: Colors.white),
+                                SizedBox(width: 10),
+                                Text('RESET', style: TextStyle(color: Colors.white, fontSize: 18)),
+                              ],
+                            ),
                           ),
                         ),
-                        onPressed: _resetBoard,
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.refresh, color: Colors.white),
-                            SizedBox(width: 10),
-                            Text('RESET', style: TextStyle(color: Colors.white, fontSize: 18)),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
             ],
           ),
           Positioned(
-            top: 30,
+            top: screenHeight * 0.03,  // 画面上から3%の位置に配置
             left: 0,
             child: IconButton(
               icon: const Icon(Icons.arrow_back, size: 55),
@@ -302,17 +315,26 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
   }
 
   Widget _buildBoard() {
-    // デバイスの幅を取得してスケールに基づいてフォントサイズを調整
+    // デバイスの幅と高さを取得し、それに基づいてフォントサイズと高さを調整
+    double deviceHeight = MediaQuery.of(context).size.height;
     double deviceWidth = MediaQuery.of(context).size.width;
-    double baseFontSize = deviceWidth * 0.15; // 基準としてデバイス幅の15%をフォントサイズに設定
+
+    // 最大でも画面の60%をボードが占めるようにする
+    double boardSize = deviceWidth * 1.2;
+    if (boardSize > deviceHeight * 0.6) {
+      boardSize = deviceWidth * 0.8;
+    }
+
+    double baseFontSize = boardSize * 0.15; // 基準としてボード幅の15%をフォントサイズに設定
 
     return Container(
-      height: deviceWidth * 1.2, // デバイスの幅を基に少し高さを広げる
+      height: boardSize,
+      width: boardSize,
       child: GridView.builder(
         physics: const NeverScrollableScrollPhysics(), // スクロールを無効にする
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3, // 3列にする
-          childAspectRatio: 1.0, // 正方形にする
+          crossAxisCount: 3, // 3列に設定
+          childAspectRatio: 1.0, // 正方形に設定
         ),
         itemCount: 9, // 9マス
         itemBuilder: (context, index) {
@@ -347,14 +369,14 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
               ),
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  // マスのサイズに基づいてフォントサイズを決定
-                  double fontSize = baseFontSize; // デバイス全体の幅に基づいて一貫したフォントサイズ
+                  // マス目のサイズに基づいてフォントサイズを決定
+                  double fontSize = baseFontSize; // 一貫したフォントサイズを設定
 
                   return Center(
                     child: Text(
-                      _board[index] != ' ' ? _board[index] : '',  // 空白かどうかをチェック
+                      _board[index] != ' ' ? _board[index] : '',  // 空白でない場合は表示
                       style: TextStyle(
-                        fontSize: fontSize, // 一貫したフォントサイズを設定
+                        fontSize: fontSize, // フォントサイズを設定
                         fontWeight: FontWeight.bold,
                         color: textColor,
                       ),
@@ -368,6 +390,4 @@ class _TicTacToeAIState extends State<TicTacToeAI> {
       ),
     );
   }
-
-
 }
