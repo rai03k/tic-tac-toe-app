@@ -1,3 +1,4 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'menu_screen.dart';  // menu_screen.dartをインポート
 import 'package:device_preview/device_preview.dart';
@@ -43,6 +44,39 @@ class _TicTacToeState extends State<TicTacToe> {
   List<int> _oMoves = []; // Oの移動履歴を追跡
   int? _fadedIndex; // 薄い色に変更されるマークのインデックス
 
+  late AudioCache _audioCache;
+  late AudioPlayer _audioPlayer;
+  double _playbackRate = 1.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _audioCache = AudioCache(prefix: 'assets/audio/');
+    _audioPlayer = AudioPlayer();
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
+  void _playAudioTap() async {
+    try {
+      await _audioPlayer.play(AssetSource('audio/tap.mp3'));
+    } catch (e) {
+      print('Error playing audio: $e');
+    }
+  }
+
+  void _playAudioWin() async {
+    try {
+      await _audioPlayer.play(AssetSource('audio/complete.mp3'));
+    } catch (e) {
+      print('Error playing audio: $e');
+    }
+  }
+
   void _resetBoard() {
     setState(() {
       _board = List.generate(9, (index) => ' '); // ボードをリセット時に再初期化
@@ -56,6 +90,7 @@ class _TicTacToeState extends State<TicTacToe> {
   }
 
   void _handleTap(int index) {
+    _playAudioTap();
     // 既にマークがある場所、または勝者が決まった後の場所には置けないようにする
     if (_board[index] != ' ' || _winner != '') return;
 
@@ -133,9 +168,11 @@ class _TicTacToeState extends State<TicTacToe> {
     String topText;
 
     if (_winner == 'X') {
+      _playAudioWin();
       topColor = Colors.redAccent;
       topText = 'Player 1 Wins!';
     } else if (_winner == 'O') {
+      _playAudioWin();
       topColor = Colors.blueAccent;
       topText = 'Player 2 Wins!';
     } else {
