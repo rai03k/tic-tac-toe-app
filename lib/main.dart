@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';  // 画面の向きを固定するため
 import 'package:device_preview/device_preview.dart';  // DevicePreviewのインポート
 import 'package:flutter/foundation.dart';  // kReleaseMode用
 import 'screens/menu_screen.dart';  // メニュー画面をインポート
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();  // バインディングの初期化
+  MobileAds.instance.initialize();  // AdMobの初期化
 
   // 縦画面（Portrait）のみを許可
   await SystemChrome.setPreferredOrientations([
