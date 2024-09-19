@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';  // AdMobのインポート
 import '../models/game_board.dart';  // ゲームロジックをインポート
 import '../widgets/game_board_widget.dart';  // ゲームボード描画用のウィジェット
+import '../admob/banner_ad_widget.dart';  // バナー広告ウィジェットをインポート
 
 class AIGameScreen extends StatefulWidget {
   const AIGameScreen({super.key});
@@ -12,62 +12,25 @@ class AIGameScreen extends StatefulWidget {
 
 class _AIGameScreenState extends State<AIGameScreen> {
   final GameBoard _gameBoard = GameBoard();
-  late BannerAd _bannerAd;
-  bool _isBannerAdLoaded = false;
-  bool _isPlayerTurn = true;  // プレイヤーのターンかどうかを管理するフラグ
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBannerAd();
-  }
-
-  void _loadBannerAd() {
-    _bannerAd = BannerAd(
-      adUnitId: '<YOUR_AD_UNIT_ID>',  // 実際の広告ユニットIDに置き換えてください
-      size: AdSize.banner,
-      request: const AdRequest(),
-      listener: BannerAdListener(
-        onAdLoaded: (_) {
-          setState(() {
-            _isBannerAdLoaded = true;
-          });
-        },
-        onAdFailedToLoad: (ad, error) {
-          ad.dispose();
-          print('Failed to load a banner ad: $error');
-        },
-      ),
-    )..load();
-  }
-
-  @override
-  void dispose() {
-    _bannerAd.dispose();
-    super.dispose();
-  }
+  bool _isPlayerTurn = true;
 
   void _resetBoard() {
     setState(() {
       _gameBoard.resetBoard();
-      _isPlayerTurn = true;  // リセット時にプレイヤーのターンを再び有効にする
+      _isPlayerTurn = true;
     });
   }
 
   void _handleTap(int index) {
-    if (!_isPlayerTurn || _gameBoard.winner.isNotEmpty) return;  // プレイヤーのターンでない、または勝敗が決まっている場合はタップ無効
+    if (!_isPlayerTurn || _gameBoard.winner.isNotEmpty) return;
 
     setState(() {
       if (_gameBoard.handleTap(index)) {
-        // プレイヤーのターン終了、AIのターン開始
         _isPlayerTurn = false;
-
-        // AIのターンを遅延して実行
         Future.delayed(const Duration(seconds: 1), () {
           setState(() {
-            // AIが適当な空きマスに手を打つ（例としてランダムな空きマスを選択）
             _gameBoard.handleTap(_gameBoard.board.indexOf(' '));
-            _isPlayerTurn = true;  // AIのターン終了、再びプレイヤーのターンを有効にする
+            _isPlayerTurn = true;
           });
         });
       }
@@ -77,10 +40,23 @@ class _AIGameScreenState extends State<AIGameScreen> {
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
-    bool isDarkMode = Theme.of(context).brightness == Brightness.dark;  // ダークモード判定
+    final screenWidth = MediaQuery.of(context).size.width;
 
-    // 縦幅が800以上1000以下のときだけボタンを移動
-    final shouldTranslate = screenHeight >= 800 && screenHeight <= 1000;
+    // 横幅が1000px以上の場合、goldenRatioを10.6に変更
+    final double goldenRatio = screenHeight >= 1000 ? 10.6 : 5.6;
+    bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    // ヘッダー、ゲームボード、リセットボタンの高さを調整
+    final headerHeight = screenHeight / (goldenRatio + 1);
+
+    // リセットボタンの位置を条件に応じて変更
+    double resetButtonBottom = 80; // デフォルトは80
+    if (screenHeight >= 1000 && screenWidth <= 810) {
+      resetButtonBottom = 30;  // 縦が1000以上、横が810以下の場合は30
+    }
+    if (screenHeight <= 750) {
+      resetButtonBottom = 5;   // 縦が750以下の場合は5
+    }
 
     return Scaffold(
       body: Stack(
@@ -98,13 +74,13 @@ class _AIGameScreenState extends State<AIGameScreen> {
                   ),
                 ),
                 alignment: Alignment.bottomCenter,
-                height: screenHeight * 0.15,
+                height: headerHeight,
                 child: Text(
                   _gameBoard.winner.isEmpty
                       ? (_gameBoard.isX ? 'Player 1' : 'AI')
                       : (_gameBoard.winner == 'Draw' ? 'Draw' : '${_gameBoard.winner} Wins!'),
                   style: TextStyle(
-                    color: isDarkMode ? Colors.black : Colors.white,  // ダークモード時は黒文字
+                    color: isDarkMode ? Colors.white : Colors.white,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
@@ -124,12 +100,12 @@ class _AIGameScreenState extends State<AIGameScreen> {
                         CircleAvatar(
                           backgroundColor: Colors.redAccent,
                           radius: 40,
-                          child: Icon(Icons.person, color: isDarkMode ? Colors.black : Colors.white, size: 72),  // アイコンの色を変更
+                          child: Icon(Icons.person, color: isDarkMode ? Colors.white : Colors.white, size: 72),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Player 1',
-                          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black, fontSize: 20),  // ダークモード時に文字を白
+                          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black, fontSize: 20),
                         ),
                       ],
                     ),
@@ -144,12 +120,12 @@ class _AIGameScreenState extends State<AIGameScreen> {
                         CircleAvatar(
                           backgroundColor: Colors.blueAccent,
                           radius: 40,
-                          child: Icon(Icons.smart_toy, color: isDarkMode ? Colors.black : Colors.white, size: 72),  // アイコンの色を変更
+                          child: Icon(Icons.smart_toy, color: isDarkMode ? Colors.white : Colors.white, size: 72),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'AI',
-                          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black, fontSize: 20),  // ダークモード時に文字を白
+                          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black, fontSize: 20),
                         ),
                       ],
                     ),
@@ -157,69 +133,63 @@ class _AIGameScreenState extends State<AIGameScreen> {
                 ),
               ),
 
-              // ゲームボードとリセットボタンを包むコンテナ
+              // ゲームボード部分
               Expanded(
                 child: Container(
-                  width: MediaQuery.of(context).size.width,
-                  color: isDarkMode ? Colors.grey[800] : Colors.grey[300],  // ダークモード時に背景を暗く
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // ゲームボード
-                      Expanded(
-                        flex: 5,
-                        child: GameBoardWidget(
-                          board: _gameBoard.board,
-                          winningBlocks: _gameBoard.winningBlocks,
-                          fadedIndex: _gameBoard.fadedIndex,
-                          winner: _gameBoard.winner,
-                          onTap: _handleTap,
-                        ),
-                      ),
-
-                      const SizedBox(height: 10), // ゲームボードとリセットボタンの間に余白
-
-                      // リセットボタンを必要に応じて移動
-                      Transform.translate(
-                        offset: shouldTranslate ? const Offset(0, -50) : const Offset(0, 0),
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.amber,  // リセットボタンの背景を黄色に設定
-                            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          onPressed: _resetBoard,
-                          child: Text(
-                            'RESET',
-                            style: TextStyle(color: isDarkMode ? Colors.black : Colors.white, fontSize: 18),  // ダークモード時に黒文字
-                          ),
-                        ),
-                      ),
-
-                      // バナー広告のためのスペース
-                      if (_isBannerAdLoaded)
-                        SizedBox(
-                          height: _bannerAd.size.height.toDouble(),
-                          width: MediaQuery.of(context).size.width,
-                          child: AdWidget(ad: _bannerAd),
-                        ),
-                    ],
+                  width: screenWidth,
+                  color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                  child: GameBoardWidget(
+                    board: _gameBoard.board,
+                    winningBlocks: _gameBoard.winningBlocks,
+                    fadedIndex: _gameBoard.fadedIndex,
+                    winner: _gameBoard.winner,
+                    onTap: _handleTap,
                   ),
                 ),
               ),
             ],
           ),
 
-          // 戻るボタンを画面の左上に追加
+          // リセットボタン
+          Positioned(
+            bottom: resetButtonBottom,  // 条件に基づいてbottomの値を設定
+            left: 0,
+            right: 0,
+            child: Align(
+              alignment: Alignment.center,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber,
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
+                onPressed: _resetBoard,
+                child: Text(
+                  'RESET',
+                  style: TextStyle(color: isDarkMode ? Colors.black : Colors.white, fontSize: 18),
+                ),
+              ),
+            ),
+          ),
+
+          // バナー広告
+          const Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: BannerAdWidget(),  // バナー広告を表示
+          ),
+
+          // 戻るボタン
           Positioned(
             top: 40,
             left: 10,
             child: IconButton(
-              icon: Icon(Icons.arrow_back, size: 30, color: isDarkMode ? Colors.black : Colors.white),  // ダークモード時に黒色
+              icon: Icon(Icons.arrow_back, size: 30, color: isDarkMode ? Colors.black : Colors.white),
               onPressed: () {
-                Navigator.pop(context);  // 前の画面に戻る
+                Navigator.pop(context);
               },
             ),
           ),

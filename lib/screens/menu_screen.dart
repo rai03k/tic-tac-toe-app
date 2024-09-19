@@ -1,45 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
+import '../admob/banner_ad_widget.dart';  // 再利用するバナー広告ウィジェットをインポート
 import 'one_vs_one_game.dart';  // 1vs1ゲーム画面をインポート
 import 'ai_game_screen.dart';  // 1vsAIゲーム画面をインポート
-
-void main() {
-  runApp(MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: ThemeData(
-        brightness: Brightness.light,
-        primaryColor: Colors.white,
-        scaffoldBackgroundColor: Colors.white,
-        appBarTheme: const AppBarTheme(
-          color: Colors.white,
-          titleTextStyle: TextStyle(color: Colors.black, fontSize: 28),
-        ),
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(color: Colors.black),
-        ),
-      ),
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        primaryColor: Colors.black,
-        scaffoldBackgroundColor: Colors.black,
-        appBarTheme: const AppBarTheme(
-          color: Colors.black,
-          titleTextStyle: TextStyle(color: Colors.white, fontSize: 28),
-        ),
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(color: Colors.white),
-        ),
-      ),
-      themeMode: ThemeMode.system,  // システムのテーマに従って切り替える
-      home: const MenuScreen(),
-    );
-  }
-}
 
 class MenuScreen extends StatefulWidget {
   const MenuScreen({super.key});
@@ -49,46 +11,9 @@ class MenuScreen extends StatefulWidget {
 }
 
 class _MenuScreenState extends State<MenuScreen> {
-  late BannerAd _bannerAd;
-  bool _isBannerAdLoaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBannerAd();
-  }
-
-  void _loadBannerAd() {
-    _bannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-3940256099942544/6300978111', // テスト用ID
-      size: const AdSize(width: 320, height: 70), // 高さを20px大きくする
-      request: const AdRequest(),
-      listener: BannerAdListener(
-        onAdLoaded: (_) {
-          setState(() {
-            _isBannerAdLoaded = true;
-          });
-        },
-        onAdFailedToLoad: (ad, error) {
-          ad.dispose();
-          print('Failed to load a banner ad: $error');
-        },
-      ),
-    )..load();
-  }
-
-  @override
-  void dispose() {
-    _bannerAd.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tic Tac Toe Menu'),
-      ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,  // ボタンと広告を分ける
         children: [
@@ -140,18 +65,14 @@ class _MenuScreenState extends State<MenuScreen> {
                     Icons.public,
                     'coming soon',
                     null,
-                    color: Colors.grey,
+                    color: Colors.grey[300],
                   ),
                 ],
               ),
             ),
           ),
-          if (_isBannerAdLoaded)
-            SizedBox(
-              height: _bannerAd.size.height.toDouble(),
-              width: _bannerAd.size.width.toDouble(),
-              child: AdWidget(ad: _bannerAd),
-            ),
+          // バナー広告ウィジェットの再利用
+          const BannerAdWidget(),
         ],
       ),
     );
@@ -189,7 +110,7 @@ class _MenuScreenState extends State<MenuScreen> {
             Text(
               text,
               style: TextStyle(
-                fontSize: text == 'coming soon' ? 10 : 35,
+                fontSize: text == 'coming soon' ? 15 : 35,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
