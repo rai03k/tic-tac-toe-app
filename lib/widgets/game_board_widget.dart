@@ -20,61 +20,70 @@ class GameBoardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    double boardSize = MediaQuery.of(context).size.width * 1.0;
+    double boardSize = MediaQuery.of(context).size.width * 0.9;
     bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      height: boardSize,
-      width: boardSize,
-      // ダークモードの場合は背景を暗く、ライトモードの場合は通常のグレー
-      color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
-      child: GridView.builder(
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          childAspectRatio: 1.0,
-        ),
-        itemCount: 9,
-        itemBuilder: (context, index) {
-          // ダークモードの場合はマス目を黒、ライトモードは白に設定
-          Color blockColor = isDarkMode ? Colors.black : Colors.white;
-          Color markColor;
-
-          // 勝利時のマスの色とマークの色
-          if (winner.isNotEmpty && winningBlocks.contains(index)) {
-            blockColor = isDarkMode ? Colors.black : blockColor;
-            markColor = Colors.white;  // 勝利時のマークは白
-          }
-          // フェードインデックスに基づいてマークを薄く表示
-          else if (fadedIndex != null && index == fadedIndex) {
-            markColor = board[index] == '×'
-                ? Colors.redAccent.withOpacity(0.3)
-                : Colors.blueAccent.withOpacity(0.3);
-          }
-          // 通常のマーク
-          else {
-            markColor = board[index] == '×'
-                ? Colors.redAccent
-                : board[index] == '○'
-                ? Colors.blueAccent
-                : Colors.transparent;
-          }
-
-          return GestureDetector(
-            onTap: () => onTap(index),
-            child: Container(
-              margin: const EdgeInsets.all(4.0),
-              decoration: BoxDecoration(
-                color: blockColor,  // マス目の背景色
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              child: Center(
-                child: _buildMark(board[index], markColor),
-              ),
+    return Column(
+      children: [
+        const SizedBox(height: 10), // VS 表示と一番上のマスの間に10pxの余白を追加
+        Container(
+          height: boardSize,
+          width: boardSize,
+          child: GridView.builder(
+            physics: const NeverScrollableScrollPhysics(),  // スクロールを無効化
+            padding: EdgeInsets.zero,  // 余分な余白を除去
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,  // 3列に設定
+              childAspectRatio: 1.0,  // 各マス目を正方形に設定
             ),
-          );
-        },
-      ),
+            itemCount: 9,  // 9マスのボード
+            itemBuilder: (context, index) {
+              // マス目の背景色とマークの色
+              Color blockColor = isDarkMode ? Colors.black : Colors.white;
+              Color markColor;
+
+              // 勝利時のマスとマークの色を変更
+              if (winner.isNotEmpty && winningBlocks.contains(index)) {
+                blockColor = board[index] == '×'
+                    ? Colors.redAccent
+                    : Colors.blueAccent; // 勝利時のマスの色
+                markColor = isDarkMode ? Colors.black : Colors.white; // 勝利時のマークの色
+              }
+              // フェードインデックスに基づいてマークを薄く表示
+              else if (fadedIndex != null && index == fadedIndex) {
+                markColor = board[index] == '×'
+                    ? Colors.redAccent.withOpacity(0.3)
+                    : Colors.blueAccent.withOpacity(0.3);
+              }
+              // 通常のマーク
+              else {
+                markColor = board[index] == '×'
+                    ? Colors.redAccent
+                    : board[index] == '○'
+                    ? Colors.blueAccent
+                    : Colors.transparent;
+              }
+
+              return Container(
+                padding: const EdgeInsets.all(5),  // 各マスの周りに5pxのパディングを追加
+                color: isDarkMode ? Colors.grey[800] : Colors.grey[300],  // グレーの線
+                child: GestureDetector(
+                  onTap: () => onTap(index),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: blockColor,  // マス目の背景色
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    child: Center(
+                      child: _buildMark(board[index], markColor),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
