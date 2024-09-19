@@ -18,6 +18,7 @@
             <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
+              android:value="ca-app-pub-3940256099942544~3347511713"/>
               />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>

@@ -26,7 +26,7 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
   void _loadBannerAd() {
     _bannerAd = BannerAd(
       adUnitId: 'ca-app-pub-3940256099942544/9214589741', // 実際の広告ユニットIDに置き換えてください
-      size: AdSize.banner,
+      size: const AdSize(width: 320, height: 70), // バナーサイズの高さを20px増やしたサイズ
       request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (_) {
@@ -64,6 +64,7 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
+    bool isDarkMode = Theme.of(context).brightness == Brightness.dark;  // ダークモード判定
 
     // 縦幅が800以上1000以下のときだけボタンを移動
     final shouldTranslate = screenHeight >= 800 && screenHeight <= 1000;
@@ -92,8 +93,8 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
                   _gameBoard.winner.isEmpty
                       ? (_gameBoard.isX ? 'Player 1' : 'Player 2')
                       : (_gameBoard.winner == 'Draw' ? 'Draw' : '${_gameBoard.winner} Wins!'),
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: isDarkMode ? Colors.black : Colors.white,  // ダークモード時は黒文字
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
@@ -104,7 +105,7 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
               // プレイヤー表示部分
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: <Widget>[
@@ -113,32 +114,32 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
                         CircleAvatar(
                           backgroundColor: Colors.redAccent,
                           radius: 40,
-                          child: Icon(Icons.person, color: Colors.white, size: 72),
+                          child: Icon(Icons.person, color: isDarkMode ? Colors.black : Colors.white, size: 72),  // アイコンの色を変更
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
                           'Player 1',
-                          style: TextStyle(color: Colors.black, fontSize: 20),
+                          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black, fontSize: 20),  // ダークモード時に文字を白
                         ),
                       ],
                     ),
-                    SizedBox(width: 40),
+                    const SizedBox(width: 40),
                     Text(
                       'VS',
-                      style: TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: isDarkMode ? Colors.white : Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
                     ),
-                    SizedBox(width: 40),
+                    const SizedBox(width: 40),
                     Column(
                       children: [
                         CircleAvatar(
                           backgroundColor: Colors.blueAccent,
                           radius: 40,
-                          child: Icon(Icons.person, color: Colors.white, size: 72),
+                          child: Icon(Icons.person, color: isDarkMode ? Colors.black : Colors.white, size: 72),  // アイコンの色を変更
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
                           'Player 2',
-                          style: TextStyle(color: Colors.black, fontSize: 20),
+                          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black, fontSize: 20),  // ダークモード時に文字を白
                         ),
                       ],
                     ),
@@ -150,7 +151,7 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
               Expanded(
                 child: Container(
                   width: screenWidth,
-                  color: Colors.grey[300],
+                  color: isDarkMode ? Colors.grey[800] : Colors.grey[300],  // ダークモード時に背景を暗く
                   child: Column(
                     children: [
                       // ゲームボード部分
@@ -168,7 +169,7 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
 
                       // リセットボタンを条件に応じて移動
                       Transform.translate(
-                        offset: shouldTranslate ? const Offset(0, -50) : const Offset(0, 0),
+                        offset: shouldTranslate ? const Offset(0, -20) : const Offset(0, 0),
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.amber,
@@ -178,7 +179,10 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
                             ),
                           ),
                           onPressed: _resetBoard,
-                          child: const Text('RESET', style: TextStyle(color: Colors.white, fontSize: 18)),
+                          child: Text(
+                            'RESET',
+                            style: TextStyle(color: isDarkMode ? Colors.black : Colors.white, fontSize: 18),  // ダークモード時に黒文字
+                          ),
                         ),
                       ),
 
@@ -192,7 +196,7 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
               // バナー広告
               if (_isBannerAdLoaded)
                 SizedBox(
-                  height: _bannerAd.size.height.toDouble(),
+                  height: _bannerAd.size.height.toDouble(),  // 縦の高さを拡大
                   width: _bannerAd.size.width.toDouble(),
                   child: AdWidget(ad: _bannerAd),
                 ),
@@ -204,7 +208,7 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
             top: 40,
             left: 10,
             child: IconButton(
-              icon: const Icon(Icons.arrow_back, size: 30, color: Colors.white),
+              icon: Icon(Icons.arrow_back, size: 30, color: isDarkMode ? Colors.black : Colors.white),  // ダークモード時に黒色
               onPressed: () {
                 Navigator.pop(context);  // 前の画面に戻る
               },

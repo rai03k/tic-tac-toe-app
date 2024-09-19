@@ -77,6 +77,7 @@ class _AIGameScreenState extends State<AIGameScreen> {
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
+    bool isDarkMode = Theme.of(context).brightness == Brightness.dark;  // ダークモード判定
 
     // 縦幅が800以上1000以下のときだけボタンを移動
     final shouldTranslate = screenHeight >= 800 && screenHeight <= 1000;
@@ -102,8 +103,8 @@ class _AIGameScreenState extends State<AIGameScreen> {
                   _gameBoard.winner.isEmpty
                       ? (_gameBoard.isX ? 'Player 1' : 'AI')
                       : (_gameBoard.winner == 'Draw' ? 'Draw' : '${_gameBoard.winner} Wins!'),
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: isDarkMode ? Colors.black : Colors.white,  // ダークモード時は黒文字
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
@@ -114,7 +115,7 @@ class _AIGameScreenState extends State<AIGameScreen> {
               // プレイヤー表示部分
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: <Widget>[
@@ -123,32 +124,32 @@ class _AIGameScreenState extends State<AIGameScreen> {
                         CircleAvatar(
                           backgroundColor: Colors.redAccent,
                           radius: 40,
-                          child: Icon(Icons.person, color: Colors.white, size: 72),
+                          child: Icon(Icons.person, color: isDarkMode ? Colors.black : Colors.white, size: 72),  // アイコンの色を変更
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
                           'Player 1',
-                          style: TextStyle(color: Colors.black, fontSize: 20),
+                          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black, fontSize: 20),  // ダークモード時に文字を白
                         ),
                       ],
                     ),
-                    SizedBox(width: 40),
+                    const SizedBox(width: 40),
                     Text(
                       'VS',
-                      style: TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: isDarkMode ? Colors.white : Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
                     ),
-                    SizedBox(width: 40),
+                    const SizedBox(width: 40),
                     Column(
                       children: [
                         CircleAvatar(
                           backgroundColor: Colors.blueAccent,
                           radius: 40,
-                          child: Icon(Icons.smart_toy, color: Colors.white, size: 72),
+                          child: Icon(Icons.smart_toy, color: isDarkMode ? Colors.black : Colors.white, size: 72),  // アイコンの色を変更
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
                           'AI',
-                          style: TextStyle(color: Colors.black, fontSize: 20),
+                          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black, fontSize: 20),  // ダークモード時に文字を白
                         ),
                       ],
                     ),
@@ -160,7 +161,7 @@ class _AIGameScreenState extends State<AIGameScreen> {
               Expanded(
                 child: Container(
                   width: MediaQuery.of(context).size.width,
-                  color: Colors.grey[300], // 背景をグレーに設定
+                  color: isDarkMode ? Colors.grey[800] : Colors.grey[300],  // ダークモード時に背景を暗く
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -183,14 +184,17 @@ class _AIGameScreenState extends State<AIGameScreen> {
                         offset: shouldTranslate ? const Offset(0, -50) : const Offset(0, 0),
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.amber, // リセットボタンの背景を黄色に設定
+                            backgroundColor: Colors.amber,  // リセットボタンの背景を黄色に設定
                             padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30),
                             ),
                           ),
                           onPressed: _resetBoard,
-                          child: const Text('RESET', style: TextStyle(color: Colors.white, fontSize: 18)),
+                          child: Text(
+                            'RESET',
+                            style: TextStyle(color: isDarkMode ? Colors.black : Colors.white, fontSize: 18),  // ダークモード時に黒文字
+                          ),
                         ),
                       ),
 
@@ -213,7 +217,7 @@ class _AIGameScreenState extends State<AIGameScreen> {
             top: 40,
             left: 10,
             child: IconButton(
-              icon: const Icon(Icons.arrow_back, size: 30, color: Colors.white),
+              icon: Icon(Icons.arrow_back, size: 30, color: isDarkMode ? Colors.black : Colors.white),  // ダークモード時に黒色
               onPressed: () {
                 Navigator.pop(context);  // 前の画面に戻る
               },

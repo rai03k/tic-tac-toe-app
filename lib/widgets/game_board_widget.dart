@@ -20,11 +20,14 @@ class GameBoardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    double boardSize = MediaQuery.of(context).size.width * 0.9;
+    double boardSize = MediaQuery.of(context).size.width * 1.0;
+    bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       height: boardSize,
       width: boardSize,
+      // ダークモードの場合は背景を暗く、ライトモードの場合は通常のグレー
+      color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
       child: GridView.builder(
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -33,13 +36,13 @@ class GameBoardWidget extends StatelessWidget {
         ),
         itemCount: 9,
         itemBuilder: (context, index) {
-          Color blockColor = Colors.white;
+          // ダークモードの場合はマス目を黒、ライトモードは白に設定
+          Color blockColor = isDarkMode ? Colors.black : Colors.white;
           Color markColor;
-          double opacity = 1.0;
 
           // 勝利時のマスの色とマークの色
           if (winner.isNotEmpty && winningBlocks.contains(index)) {
-            blockColor = board[index] == '×' ? Colors.redAccent : Colors.blueAccent;
+            blockColor = isDarkMode ? Colors.black : blockColor;
             markColor = Colors.white;  // 勝利時のマークは白
           }
           // フェードインデックスに基づいてマークを薄く表示
@@ -62,7 +65,7 @@ class GameBoardWidget extends StatelessWidget {
             child: Container(
               margin: const EdgeInsets.all(4.0),
               decoration: BoxDecoration(
-                color: blockColor,
+                color: blockColor,  // マス目の背景色
                 borderRadius: BorderRadius.circular(8.0),
               ),
               child: Center(
