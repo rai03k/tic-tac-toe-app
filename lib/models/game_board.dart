@@ -1,3 +1,5 @@
+import 'package:audioplayers/audioplayers.dart';  // AudioPlayerをインポート
+
 class GameBoard {
   List<String> board = List.generate(9, (index) => ' '); // ボードの初期化
   bool isX = true;
@@ -6,6 +8,21 @@ class GameBoard {
   List<int> xMoves = [];
   List<int> oMoves = [];
   int? fadedIndex;
+  final AudioPlayer _audioPlayer; // プレイヤーのためのオーディオプレイヤー
+  int _tapCount = 0; // タップカウント
+
+  // 音階リスト
+  final List<String> _soundFiles = [
+    'audio/do.mp3',
+    'audio/re.mp3',
+    'audio/mi.mp3',
+    'audio/fa.mp3',
+    'audio/so.mp3',
+    'audio/la.mp3',
+    'audio/si.mp3',
+  ];
+
+  GameBoard() : _audioPlayer = AudioPlayer();
 
   // ボードをリセットする
   void resetBoard() {
@@ -16,11 +33,17 @@ class GameBoard {
     xMoves = [];
     oMoves = [];
     fadedIndex = null;
+    _tapCount = 0; // タップカウントもリセット
   }
 
   // プレイヤーの動きを処理
   bool handleTap(int index) {
-    if (board[index] != ' ' || winner != '') return false;
+    if (winner.isNotEmpty) return false; // 勝敗が決まっていたらタップ無効
+
+    if (board[index] != ' ') {
+      _playInvalidTapSound(); // 無効なタップ音を再生
+      return false;
+    }
 
     // 現在のプレイヤーの動きを処理
     board[index] = isX ? '×' : '○';
@@ -33,6 +56,13 @@ class GameBoard {
     }
 
     winner = _checkWinner();
+
+    // 勝者が決まった場合、勝利音を再生し、それ以降のタップ音を鳴らさない
+    if (winner.isNotEmpty) {
+      _playWinSound();
+    } else {
+      _playTapSound(); // タップ音を再生
+    }
 
     // プレイヤー交代前に、次のターンに備えてフェード処理を実行
     _handleMove();
@@ -74,5 +104,35 @@ class GameBoard {
       }
     }
     return board.contains(' ') ? '' : 'Draw';
+  }
+
+  // 有効なタップ時の音を再生
+  void _playTapSound() async {
+    try {
+      // タップごとに音階を変えて再生
+      String soundFile = _soundFiles[_tapCount % _soundFiles.length];
+      await _audioPlayer.play(AssetSource(soundFile));
+      _tapCount++; // 次の音階へ移行
+    } catch (e) {
+      print('Error playing tap sound: $e');
+    }
+  }
+
+  // 無効なタップ時の音を再生
+  void _playInvalidTapSound() async {
+    try {
+      await _audioPlayer.play(AssetSource('audio/not.mp3'));
+    } catch (e) {
+      print('Error playing invalid tap sound: $e');
+    }
+  }
+
+  // 勝利時の音を再生
+  void _playWinSound() async {
+    try {
+      await _audioPlayer.play(AssetSource('audio/complete.mp3'));
+    } catch (e) {
+      print('Error playing win sound: $e');
+    }
   }
 }

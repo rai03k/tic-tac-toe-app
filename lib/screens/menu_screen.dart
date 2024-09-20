@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../admob/banner_ad_widget.dart';  // 再利用するバナー広告ウィジェットをインポート
 import 'one_vs_one_game.dart';  // 1vs1ゲーム画面をインポート
 import 'ai_game_screen.dart';  // 1vsAIゲーム画面をインポート
+import '../admob/ad_removal.dart';  // 広告リセット画面をインポート
 
 class MenuScreen extends StatefulWidget {
   const MenuScreen({super.key});
@@ -11,6 +13,29 @@ class MenuScreen extends StatefulWidget {
 }
 
 class _MenuScreenState extends State<MenuScreen> {
+  bool _adsRemoved = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAdRemovalStatus();
+  }
+
+  // SharedPreferencesから広告削除のステータスを読み込む
+  Future<void> _loadAdRemovalStatus() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _adsRemoved = prefs.getBool('adsRemoved') ?? false;  // 広告削除状態を取得
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 広告削除状態を再度チェック
+    _loadAdRemovalStatus();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -67,12 +92,36 @@ class _MenuScreenState extends State<MenuScreen> {
                     null,
                     color: Colors.grey[300],
                   ),
+                  const SizedBox(height: 40),
+
+                  // 広告リセット画面遷移ボタンを追加
+                  _buildMenuOption(
+                    context,
+                    Icons.ad_units,
+                    Icons.cancel,
+                    '-',
+                        () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AdRemovalScreen()),
+                      ).then((_) {
+                        // AdRemovalScreenから戻った後に再度広告削除の状態をチェック
+                        _loadAdRemovalStatus();
+                      });
+                    },
+                    gradient: const LinearGradient(
+                      colors: [Colors.orange, Colors.deepOrangeAccent],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
-          // バナー広告ウィジェットの再利用
-          const BannerAdWidget(),
+          // バナー広告ウィジェットの再利用。広告が削除されている場合は非表示。
+          if (!_adsRemoved)
+            const BannerAdWidget(),
         ],
       ),
     );

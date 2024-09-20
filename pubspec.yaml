@@ -14,6 +14,7 @@ dependencies:
   device_preview: ^1.2.0
   audioplayers: ^6.1.0
   google_mobile_ads: ^5.1.0
+  url_launcher: ^6.0.20
 
 dev_dependencies:
   flutter_test:
@@ -23,13 +24,5 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/audio/do.mp3
-    - assets/audio/re.mp3
-    - assets/audio/mi.mp3
-    - assets/audio/fa.mp3
-    - assets/audio/so.mp3
-    - assets/audio/la.mp3
-    - assets/audio/si.mp3
-    - assets/audio/complete.mp3
-    - assets/audio/not.mp3
+    - assets/audio/
 

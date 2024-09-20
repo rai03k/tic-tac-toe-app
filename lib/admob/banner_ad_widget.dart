@@ -1,6 +1,6 @@
-// lib/admob/banner_ad_widget.dart
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class BannerAdWidget extends StatefulWidget {
   const BannerAdWidget({super.key});
@@ -10,13 +10,23 @@ class BannerAdWidget extends StatefulWidget {
 }
 
 class _BannerAdWidgetState extends State<BannerAdWidget> {
-  late BannerAd _bannerAd;
+  BannerAd? _bannerAd;
   bool _isBannerAdLoaded = false;
+  bool _adsRemoved = false;
 
   @override
   void initState() {
     super.initState();
-    _loadBannerAd();
+    _checkAdRemovalStatus();
+  }
+
+  Future<void> _checkAdRemovalStatus() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    _adsRemoved = prefs.getBool('adsRemoved') ?? false;
+
+    if (!_adsRemoved) {
+      _loadBannerAd();
+    }
   }
 
   void _loadBannerAd() {
@@ -40,17 +50,21 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
 
   @override
   void dispose() {
-    _bannerAd.dispose();
+    _bannerAd?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isBannerAdLoaded) {
+    if (_adsRemoved) {
+      return const SizedBox();  // 広告が削除されている場合は何も表示しない
+    }
+
+    if (_isBannerAdLoaded && _bannerAd != null) {
       return SizedBox(
-        height: _bannerAd.size.height.toDouble(),
+        height: _bannerAd!.size.height.toDouble(),
         width: MediaQuery.of(context).size.width,
-        child: AdWidget(ad: _bannerAd),
+        child: AdWidget(ad: _bannerAd!),
       );
     } else {
       return const SizedBox();  // 広告が読み込まれていない場合は空のウィジェットを返す
