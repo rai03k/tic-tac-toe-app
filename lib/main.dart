@@ -11,14 +11,20 @@ void main() async {
 
   // 縦画面（Portrait）のみを許可
   await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,  // 上向きのみ許可
+    DeviceOrientation.portraitUp,  // sudo gem install cocoapods
   ]);
 
+  // Chromeで実行されている場合にのみDevicePreviewを有効にする
+  final bool isWebAndChrome =
+      kIsWeb && defaultTargetPlatform == TargetPlatform.android;  // Chromeは`TargetPlatform.android`として扱われる
+
   runApp(
-    DevicePreview(
+    isWebAndChrome
+        ? DevicePreview(
       enabled: !kReleaseMode,  // リリースモードでは無効化する
       builder: (context) => const MyApp(),  // アプリの起動
-    ),
+    )
+        : const MyApp(),
   );
 }
 
