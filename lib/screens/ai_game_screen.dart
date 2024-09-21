@@ -21,20 +21,28 @@ class _AIGameScreenState extends State<AIGameScreen> {
     });
   }
 
-  void _handleTap(int index) {
+  void _handleTap(int index) async {
     if (!_isPlayerTurn || _gameBoard.winner.isNotEmpty) return;
 
-    setState(() {
-      if (_gameBoard.handleTap(index)) {
+    // プレイヤーのターン
+    bool playerMove = await _gameBoard.handleTap(index);
+
+    if (playerMove) {
+      setState(() {
         _isPlayerTurn = false;
-        Future.delayed(const Duration(seconds: 1), () {
-          setState(() {
-            _gameBoard.handleTap(_gameBoard.board.indexOf(' '));
-            _isPlayerTurn = true;
-          });
+      });
+
+      // AIのターン（1秒遅延）
+      Future.delayed(const Duration(seconds: 1), () async {
+        int bestMove = _gameBoard.findBestMove();  // AIが最適な手を選択
+        if (bestMove != -1) {
+          await _gameBoard.handleTap(bestMove);  // AIが選んだ手を実行
+        }
+        setState(() {
+          _isPlayerTurn = true;  // 再びプレイヤーのターン
         });
-      }
-    });
+      });
+    }
   }
 
   @override
