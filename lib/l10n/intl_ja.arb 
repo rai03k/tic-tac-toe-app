@@ -1,0 +1,8 @@
+{
+  "@@locale": "ja",
+  "appTitle": "広告を削除する",
+  "progressText": "広告を削除する進捗",
+  "stepsCompleted": "{count} / 3 ステップ完了",
+  "writeReview": "レビューを書く",
+  "watchVideo": "動画を見て広告を削除する"
+}
