@@ -11,39 +11,41 @@ class OneVsOneGame extends StatefulWidget {
 }
 
 class _OneVsOneGameState extends State<OneVsOneGame> {
-  final GameBoard _gameBoard = GameBoard();
+  final GameBoard _gameBoard = GameBoard(); // ゲームボードのインスタンスを作成
 
+  // ボードをリセットする関数
   void _resetBoard() {
     setState(() {
-      _gameBoard.resetBoard();
+      _gameBoard.resetBoard();  // ゲームボードをリセット
     });
   }
 
+  // タップを処理する関数
   void _handleTap(int index) {
     setState(() {
-      _gameBoard.handleTap(index);
+      _gameBoard.handleTap(index);  // タップされた位置の処理を実行
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
-    bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final screenHeight = MediaQuery.of(context).size.height;  // 画面の高さを取得
+    final screenWidth = MediaQuery.of(context).size.width;  // 画面の幅を取得
+    bool isDarkMode = Theme.of(context).brightness == Brightness.dark;  // ダークモードかどうかを判定
 
-    // 端末の横幅が1000px以上の場合、goldenRatioを10.6に変更
+    // 画面の横幅が1000px以上の場合、goldenRatioを10.6に設定
     final double goldenRatio = screenHeight >= 1000 ? 10.6 : 5.6;
 
     // ヘッダー、ゲームボード、リセットボタンの高さを調整
     final headerHeight = screenHeight / (goldenRatio + 1);
 
-    // リセットボタンの位置を条件に応じて変更
-    double resetButtonBottom = 80; // デフォルトは80
+    // リセットボタンの位置を条件に応じて調整
+    double resetButtonBottom = 80;  // デフォルトは80
     if (screenHeight >= 1000 && screenWidth <= 810) {
-      resetButtonBottom = 30;  // 縦が1000以上、横が810以下の場合は30
+      resetButtonBottom = 30;  // 縦長で横幅が狭い場合
     }
     if (screenHeight <= 750) {
-      resetButtonBottom = 5;   // 縦が750以下の場合は5
+      resetButtonBottom = 5;   // 画面が小さい場合
     }
 
     return Scaffold(
@@ -55,26 +57,31 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
               Container(
                 padding: const EdgeInsets.only(bottom: 10),
                 decoration: BoxDecoration(
-                  color: _gameBoard.isX ? Colors.redAccent : Colors.blueAccent,
+                  color: _gameBoard.winner.isEmpty
+                      ? (_gameBoard.isX ? Colors.redAccent : Colors.blueAccent) // プレイヤーのターンに応じた色
+                      : (_gameBoard.isX ? Colors.blueAccent : Colors.redAccent), // 勝者に応じた色：Player 1なら赤、Player 2なら青
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(80),
                     bottomRight: Radius.circular(80),
                   ),
                 ),
                 alignment: Alignment.bottomCenter,
-                height: headerHeight,
+                height: headerHeight, // ヘッダーの高さを設定
                 child: Text(
                   _gameBoard.winner.isEmpty
-                      ? (_gameBoard.isX ? 'Player 1' : 'Player 2')
-                      : (_gameBoard.winner == 'Draw' ? 'Draw' : '${_gameBoard.winner} Wins!'),
+                      ? (_gameBoard.isX ? 'Player 1\'s Turn' : 'Player 2\'s Turn')  // 勝者がいない場合、プレイヤーを表示
+                      : (_gameBoard.isX // 勝者が決定した場合の判定
+                      ? 'Player 2 Wins!' // Player 1が勝者ならPlayer 2が勝った場合のテキスト
+                      : 'Player 1 Wins!'), // Player 2が勝者ならPlayer 1が勝った場合のテキスト
                   style: TextStyle(
-                    color: isDarkMode ? Colors.black : Colors.white,
+                    color: isDarkMode ? Colors.white : Colors.white,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.center,
                 ),
               ),
+
 
               // プレイヤー表示部分
               Container(
@@ -85,6 +92,7 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
                   children: <Widget>[
                     Column(
                       children: [
+                        // Player 1のアイコン
                         CircleAvatar(
                           backgroundColor: Colors.redAccent,
                           radius: 40,
@@ -97,14 +105,15 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
                         ),
                       ],
                     ),
-                    const SizedBox(width: 40),
+                    const SizedBox(width: 40),  // スペース
                     Text(
                       'VS',
                       style: TextStyle(color: isDarkMode ? Colors.white : Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(width: 40),
+                    const SizedBox(width: 40),  // スペース
                     Column(
                       children: [
+                        // Player 2のアイコン
                         CircleAvatar(
                           backgroundColor: Colors.blueAccent,
                           radius: 40,
@@ -124,14 +133,14 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
               // ゲームボード部分
               Expanded(
                 child: Container(
-                  width: screenWidth,
-                  color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                  width: screenWidth,  // 画面の幅を取得
+                  color: isDarkMode ? Colors.grey[800] : Colors.grey[300],  // ダークモードに応じた背景色
                   child: GameBoardWidget(
-                    board: _gameBoard.board,
-                    winningBlocks: _gameBoard.winningBlocks,
-                    fadedIndex: _gameBoard.fadedIndex,
-                    winner: _gameBoard.winner,
-                    onTap: _handleTap,
+                    board: _gameBoard.board,  // ゲームボードの状態をウィジェットに渡す
+                    winningBlocks: _gameBoard.winningBlocks,  // 勝利ブロックを渡す
+                    fadedIndex: _gameBoard.fadedIndex,  // フェードさせるインデックスを渡す
+                    winner: _gameBoard.winner,  // 勝者を渡す
+                    onTap: _handleTap,  // タップ処理を渡す
                   ),
                 ),
               ),
@@ -140,7 +149,7 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
 
           // リセットボタン
           Positioned(
-            bottom: resetButtonBottom,  // 条件に基づいてbottomの値を設定
+            bottom: resetButtonBottom,  // リセットボタンの位置を設定
             left: 0,
             right: 0,
             child: Align(
@@ -153,7 +162,7 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
                     borderRadius: BorderRadius.circular(30),
                   ),
                 ),
-                onPressed: _resetBoard,
+                onPressed: _resetBoard,  // リセットボタンが押された時にボードをリセット
                 child: Text(
                   'RESET',
                   style: TextStyle(color: isDarkMode ? Colors.black : Colors.white, fontSize: 18),
@@ -177,7 +186,7 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
             child: IconButton(
               icon: Icon(Icons.arrow_back, size: 30, color: isDarkMode ? Colors.black : Colors.white),
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.pop(context);  // 戻るボタンが押された時に画面を戻す
               },
             ),
           ),

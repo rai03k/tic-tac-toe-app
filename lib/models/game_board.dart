@@ -3,14 +3,15 @@ import 'dart:math';
 
 class GameBoard {
   List<String> board = List.generate(9, (index) => ' '); // ボードの初期化
-  bool isX = true;
-  String winner = '';
-  List<int> winningBlocks = [];
-  List<int> xMoves = [];
-  List<int> oMoves = [];
-  int? fadedIndex;
-  late AudioPlayer _audioPlayer;
+  bool isX = true; // 現在のプレイヤーがXかどうかを判定
+  String winner = ''; // 勝者の名前を保持
+  List<int> winningBlocks = []; // 勝利したラインのインデックスを保持
+  List<int> xMoves = []; // Xプレイヤーの動きを追跡
+  List<int> oMoves = []; // Oプレイヤーの動きを追跡
+  int? fadedIndex; // 薄くするマークのインデックス
+  late AudioPlayer _audioPlayer; // 音声プレイヤー
   int _tapCount = 0; // タップ回数を管理して音階を変更する
+  bool isAiMode = false; // 1vsAIモードかどうか
   int maxDepth = 4; // ミニマックスアルゴリズムの深さを設定
 
   // 音階のリスト
@@ -25,18 +26,18 @@ class GameBoard {
   ];
 
   GameBoard() {
-    _audioPlayer = AudioPlayer();
+    _audioPlayer = AudioPlayer(); // AudioPlayerの初期化
   }
 
-  // ボードをリセットする
+// ボードをリセットする
   void resetBoard() {
-    board = List.generate(9, (index) => ' ');
-    isX = true;
-    winner = '';
-    winningBlocks = [];
-    xMoves = [];
-    oMoves = [];
-    fadedIndex = null;
+    board = List.generate(9, (index) => ' '); // ボードをリセット
+    isX = true; // Xプレイヤーから開始
+    winner = ''; // 勝者のリセット
+    winningBlocks = []; // 勝利ラインのリセット
+    xMoves = []; // Xプレイヤーの動きをリセット
+    oMoves = []; // Oプレイヤーの動きをリセット
+    fadedIndex = null; // 薄いマークのリセット
     _tapCount = 0; // タップカウントもリセット
   }
 
@@ -53,58 +54,59 @@ class GameBoard {
       return false;
     }
 
-    // 現在のプレイヤーの動きを処理
+    // 現在のプレイヤーの動きをボードに反映
     board[index] = isX ? '×' : '○';
-    (isX ? xMoves : oMoves).add(index);
+    (isX ? xMoves : oMoves).add(index); // XかOの動きを記録
 
     // 音階を順番に再生
     await _playTapSound();
 
-    // 4つ目を置いた場合、1つ目を消す
+    // 4つ目のマークを置いた場合、1つ目のマークを削除
     if ((isX ? xMoves : oMoves).length > 3) {
-      int oldIndex = (isX ? xMoves : oMoves).removeAt(0);
-      board[oldIndex] = ' ';
+      int oldIndex = (isX ? xMoves : oMoves).removeAt(0); // 最古のマークを削除
+      board[oldIndex] = ' '; // ボード上のマークを削除
     }
 
-    winner = _checkWinner();
+    winner = _checkWinner(); // 勝者を確認
 
-    // 勝者が決まった場合、勝利音を再生
+    // 勝者が決定した場合、勝利音を再生
     if (winner.isNotEmpty) {
       await _playWinSound();
     }
 
-    // プレイヤー交代前に、次のターンに備えてフェード処理を実行
+    // プレイヤー交代前に、フェード処理を実行
     _handleMove();
 
-    // プレイヤー交代
+    // プレイヤーを交代
     isX = !isX;
 
-    return true;
+    return true; // タップが成功したことを返す
   }
 
   // AIの手を決定するミニマックスアルゴリズムの実装
   int findBestMove() {
-    int bestMove = -1;
-    int bestScore = -1000;
+    int bestMove = -1; // 最適な手を保持
+    int bestScore = -1000; // 最大のスコアを保持
 
+    // 空の位置を探索
     for (int i = 0; i < board.length; i++) {
       if (board[i] == ' ') {
         board[i] = '○';  // AIは'○'としてプレイ
-        int score = minimax(board, 0, false);
+        int score = minimax(board, 0, false); // スコア計算
         board[i] = ' ';  // ボードを元に戻す
 
         if (score > bestScore) {
-          bestScore = score;
-          bestMove = i;
+          bestScore = score; // 最大スコアを更新
+          bestMove = i; // 最適な手を更新
         }
       }
     }
-    return bestMove;
+    return bestMove; // 最適な手を返す
   }
 
   // ミニマックスアルゴリズム
   int minimax(List<String> board, int depth, bool isMaximizing) {
-    String result = _checkWinner();
+    String result = _checkWinner(); // 勝者のチェック
     if (result.isNotEmpty) {
       if (result == '○') return 10 - depth;  // AIの勝利
       if (result == '×') return depth - 10;  // プレイヤーの勝利
@@ -116,25 +118,28 @@ class GameBoard {
       return 0;
     }
 
+    // AIの最適な手を探索
     if (isMaximizing) {
       int bestScore = -1000;
       for (int i = 0; i < board.length; i++) {
         if (board[i] == ' ') {
           board[i] = '○';  // AIの手
-          int score = minimax(board, depth + 1, false);
-          board[i] = ' ';
-          bestScore = max(score, bestScore);
+          int score = minimax(board, depth + 1, false); // 再帰呼び出し
+          board[i] = ' '; // ボードを元に戻す
+          bestScore = max(score, bestScore); // 最大スコアを更新
         }
       }
       return bestScore;
-    } else {
+    }
+    // プレイヤーの最適な手を探索
+    else {
       int bestScore = 1000;
       for (int i = 0; i < board.length; i++) {
         if (board[i] == ' ') {
           board[i] = '×';  // プレイヤーの手
-          int score = minimax(board, depth + 1, true);
-          board[i] = ' ';
-          bestScore = min(score, bestScore);
+          int score = minimax(board, depth + 1, true); // 再帰呼び出し
+          board[i] = ' '; // ボードを元に戻す
+          bestScore = min(score, bestScore); // 最小スコアを更新
         }
       }
       return bestScore;
@@ -148,6 +153,7 @@ class GameBoard {
       [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6],
     ];
 
+    // 各勝利パターンをチェック
     for (var pattern in winPatterns) {
       String first = board[pattern[0]];
       if (first != ' ' &&
@@ -157,36 +163,36 @@ class GameBoard {
         return first;
       }
     }
-    return board.contains(' ') ? '' : 'Draw';
+    return board.contains(' ') ? '' : 'Draw'; // 引き分け判定
   }
 
   // 有効なタップ時の音を再生
   Future<void> _playTapSound() async {
     try {
       // タップごとに音階を変えて再生
-      String soundFile = _soundFiles[_tapCount % _soundFiles.length];
-      await _audioPlayer.play(AssetSource(soundFile));
-      _tapCount++; // 次の音階へ移行
+      String soundFile = _soundFiles[_tapCount % _soundFiles.length]; // 音階を選択
+      await _audioPlayer.play(AssetSource(soundFile)); // 音声を再生
+      _tapCount++; // タップ回数を増やす
     } catch (e) {
-      print('Error playing tap sound: $e');
+      print('Error playing tap sound: $e'); // エラーメッセージ
     }
   }
 
   // 無効なタップ時の音を再生
   Future<void> _playInvalidTapSound() async {
     try {
-      await _audioPlayer.play(AssetSource('audio/not.mp3'));
+      await _audioPlayer.play(AssetSource('audio/not.mp3')); // 無効タップ音を再生
     } catch (e) {
-      print('Error playing invalid tap sound: $e');
+      print('Error playing invalid tap sound: $e'); // エラーメッセージ
     }
   }
 
   // 勝利時の音を再生
   Future<void> _playWinSound() async {
     try {
-      await _audioPlayer.play(AssetSource('audio/complete.mp3'));
+      await _audioPlayer.play(AssetSource('audio/complete.mp3')); // 勝利音を再生
     } catch (e) {
-      print('Error playing win sound: $e');
+      print('Error playing win sound: $e'); // エラーメッセージ
     }
   }
 
@@ -194,13 +200,13 @@ class GameBoard {
   void _handleMove() {
     // Xのターンが終了し、Oの最初のマークを薄くする
     if (!isX && xMoves.length >= 3) {
-      fadedIndex = xMoves[0];
+      fadedIndex = xMoves[0]; // 最古のXマークを薄くする
     }
     // Oのターンが終了し、Xの最初のマークを薄くする
     else if (isX && oMoves.length >= 3) {
-      fadedIndex = oMoves[0];
+      fadedIndex = oMoves[0]; // 最古のOマークを薄くする
     } else {
-      fadedIndex = null;
+      fadedIndex = null; // フェードなし
     }
   }
 }
