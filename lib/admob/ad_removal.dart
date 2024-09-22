@@ -123,10 +123,35 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
         },
         onAdFailedToLoad: (LoadAdError error) {
           print('動画広告の読み込みに失敗しました: $error');  // エラー時の処理
+
+          // ユーザーにエラーメッセージを表示
+          _showErrorDialog('ネットワークに接続できません。インターネット接続を確認してください。');
         },
       ),
     );
   }
+
+// ネットワークエラーメッセージを表示する関数
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('エラー'),
+          content: Text(message),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();  // ダイアログを閉じる
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 
   // 動画広告を表示して、進捗を更新する関数
   void _showRewardedAd() {
@@ -140,7 +165,13 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
           _animation = Tween<double>(begin: 0, end: _progress.toDouble() / 3).animate(_controller);
           _controller.forward();  // アニメーションを再開
         });
-        _loadRewardedAd();  // 新しい広告を読み込む
+        // 動画視聴後、新しい広告を読み込む
+        _rewardedAd!.dispose();  // 古い広告を破棄する（新しい広告はロードしない）
+        // 画面をリロードする
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (BuildContext context) => const AdRemovalScreen()),
+        );
       });
     }
   }
@@ -225,12 +256,28 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
                               borderRadius: BorderRadius.circular(30),  // 角を丸くする
                             ),
                           ),
-                          child: const Text(
-                            'Write a Review',  // ボタンのテキスト
-                            style: TextStyle(fontSize: 18),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,  // ボタンのサイズに合わせる
+                            children: const [
+                              Icon(Icons.rate_review, size: 24),  // レビューアイコン
+                              SizedBox(width: 10),  // アイコンとテキストの間にスペースを追加
+                              Text(
+                                'Write a Review',  // ボタンのテキスト
+                                style: TextStyle(fontSize: 18),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 20),
+
+                        const SizedBox(height: 20),  // ボタンと「or」の間にスペースを追加
+
+                        const Text(  // or のテキスト
+                          'or',
+                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                        ),
+
+                        const SizedBox(height: 20),  // 「or」と次のボタンの間にスペースを追加
+
                         ElevatedButton(
                           onPressed: _rewardedAd != null ? _showRewardedAd : null,  // 動画再生
                           style: ElevatedButton.styleFrom(
@@ -239,9 +286,16 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
                               borderRadius: BorderRadius.circular(30),  // 角を丸くする
                             ),
                           ),
-                          child: const Text(
-                            'Watch Video to Remove Ads',  // ボタンのテキスト
-                            style: TextStyle(fontSize: 18),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,  // ボタンのサイズに合わせる
+                            children: const [
+                              Icon(Icons.play_circle, size: 24),  // 動画再生アイコン
+                              SizedBox(width: 10),  // アイコンとテキストの間にスペースを追加
+                              Text(
+                                'Watch Video to Remove Ads',  // ボタンのテキスト
+                                style: TextStyle(fontSize: 18),
+                              ),
+                            ],
                           ),
                         ),
                       ],
