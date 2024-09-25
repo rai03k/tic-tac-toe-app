@@ -398,7 +398,7 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
       await prefs.setBool('adsRemoved', true);  // 広告が削除されたことを保存
     }
   }
-
+  
 
   // SharedPreferencesから進捗状況を読み込む
   Future<void> _loadProgress() async {
@@ -406,6 +406,8 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
     setState(() {
       _progress = prefs.getInt('adRemovalProgress') ?? 1;
       _hasReviewed = prefs.getBool('hasReviewed') ?? false;
+      _videoWatched = prefs.getBool('videoWatched') ?? false;
+      _adsRemoved = prefs.getBool('adsRemoved') ?? false;  // 広告が削除されたかどうかを確認
     });
   }
 
