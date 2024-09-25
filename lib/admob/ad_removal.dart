@@ -172,156 +172,6 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
     return _translations[_selectedLanguage]?[key] ?? '';
   }
 
-  // バナー広告を読み込む関数
-  void _loadBannerAds() {
-    _topBannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-3940256099942544/9214589741', // トップのバナー広告ユニットID
-      size: AdSize.banner,
-      request: AdRequest(),
-      listener: BannerAdListener(
-        onAdLoaded: (ad) {
-          setState(() {
-            _isTopBannerAdLoaded = true;
-          });
-        },
-        onAdFailedToLoad: (ad, error) {
-          print('トップバナー広告の読み込みに失敗しました: $error');
-          ad.dispose();
-        },
-      ),
-    )..load();
-
-    _bottomBannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-3940256099942544/9214589741', // ボトムのバナー広告ユニットID
-      size: AdSize.banner,
-      request: AdRequest(),
-      listener: BannerAdListener(
-        onAdLoaded: (ad) {
-          setState(() {
-            _isBottomBannerAdLoaded = true;
-          });
-        },
-        onAdFailedToLoad: (ad, error) {
-          print('ボトムバナー広告の読み込みに失敗しました: $error');
-          ad.dispose();
-        },
-      ),
-    )..load();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();  // アニメーションコントローラーを破棄
-    _rewardedAd?.dispose();  // 動画広告を破棄
-    _topBannerAd?.dispose();  // トップバナー広告を破棄
-    _bottomBannerAd?.dispose();  // ボトムバナー広告を破棄
-    super.dispose();
-  }
-
-  // SharedPreferences から進捗状況を読み込む関数
-  Future<void> _loadProgress() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();  // SharedPreferencesのインスタンスを取得
-    setState(() {
-      _progress = prefs.getInt('adRemovalProgress') ?? 1;  // 初期状態は1点目
-      _hasReviewed = prefs.getBool('hasReviewed') ?? false;
-      _videoWatched = prefs.getBool('videoWatched') ?? false;
-      _adsRemoved = prefs.getBool('adsRemoved') ?? false;  // 広告が削除されたかどうかを確認
-    });
-  }
-
-  // SharedPreferences に進捗を保存する関数
-  Future<void> _saveProgress() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();  // SharedPreferencesのインスタンスを取得
-    await prefs.setInt('adRemovalProgress', _progress);  // 現在の進捗を保存
-    await prefs.setBool('hasReviewed', _hasReviewed);  // レビュー完了状態を保存
-    await prefs.setBool('videoWatched', _videoWatched);  // 動画視聴状態を保存
-    if (_progress == 3) {
-      _adsRemoved = true;
-      await prefs.setBool('adsRemoved', true);  // 広告を削除したことを保存
-    }
-  }
-
-  // 動画広告を読み込む関数
-  void _loadRewardedAd() {
-    RewardedAd.load(
-      adUnitId: 'ca-app-pub-3940256099942544/5224354917',  // 動画広告ユニットID
-      request: const AdRequest(),  // 広告リクエスト
-      rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (RewardedAd ad) {
-          setState(() {
-            _rewardedAd = ad;  // 読み込まれた動画広告を保存
-          });
-        },
-        onAdFailedToLoad: (LoadAdError error) {
-          print('動画広告の読み込みに失敗しました: $error');  // エラー時の処理
-
-          // ユーザーにエラーメッセージを表示
-          _showErrorDialog('ネットワークに接続できません。インターネット接続を確認してください。');
-        },
-      ),
-    );
-  }
-
-  // ネットワークエラーメッセージを表示する関数
-  void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('エラー'),
-          content: Text(message),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();  // ダイアログを閉じる
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // 動画広告を表示して、進捗を更新する関数
-  void _showRewardedAd() {
-    if (_rewardedAd != null) {
-      _rewardedAd!.show(onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
-        setState(() {
-          if (_progress < 3) _progress++;  // 進捗を1点進める
-          _videoWatched = true;  // 動画視聴完了
-          _saveProgress();  // 進捗を保存
-          _controller.reset();  // アニメーションをリセット
-          _animation = Tween<double>(begin: 0, end: _progress.toDouble() / 3).animate(_controller);
-          _controller.forward();  // アニメーションを再開
-        });
-        // 動画視聴後、新しい広告を読み込む
-        _rewardedAd!.dispose();  // 古い広告を破棄する（新しい広告はロードしない）
-        // 画面をリロードする
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (BuildContext context) => const AdRemovalScreen()),
-        );
-      });
-    }
-  }
-
-  // レビューを書いて進捗を更新する関数
-  Future<void> _writeReview() async {
-    const reviewUrl = 'https://example.com/review';  // レビューのリンク
-    if (await canLaunch(reviewUrl)) {
-      await launch(reviewUrl);  // リンクを起動
-      setState(() {
-        _hasReviewed = true;  // レビュー完了
-        if (_progress < 3) _progress++;  // 進捗を1点進める
-        _saveProgress();  // 進捗を保存
-        _controller.reset();  // アニメーションをリセット
-        _animation = Tween<double>(begin: 0, end: _progress.toDouble() / 3).animate(_controller);
-        _controller.forward();  // アニメーションを再開
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -354,7 +204,7 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
                       children: [
                         Text(
                           _getTranslation('progressDescription'),  // 進捗状況の説明
-                          style: TextStyle(fontSize: 24),
+                          style: const TextStyle(fontSize: 24),
                         ),
                         const SizedBox(height: 20),
                         AnimatedBuilder(
@@ -379,8 +229,8 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
 
                   const SizedBox(height: 40),
 
-                  // 進捗が1点目の場合、レビューか動画再生が可能
-                  if (_progress == 1 && !_hasReviewed)
+                  // 進捗が1点目または2点目の場合、レビューか動画再生が可能
+                  if ((_progress == 1 || _progress == 2) && !_hasReviewed)
                     Column(
                       children: [
                         ElevatedButton(
@@ -436,6 +286,22 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
                       ],
                     ),
 
+                  // 進捗が2点目またはレビュー済みの場合は動画再生のみ
+                  if (_progress == 1 && _hasReviewed) // 進捗が1でレビュー済みの場合のみ
+                    ElevatedButton(
+                      onPressed: _rewardedAd != null ? _showRewardedAd : null,  // 動画再生
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),  // 角を丸くする
+                        ),
+                      ),
+                      child: Text(
+                        _getTranslation('watchVideoButton'),  // ボタンのテキスト
+                        style: const TextStyle(fontSize: 18),
+                      ),
+                    ),
+
                   const SizedBox(height: 40),
 
                   if (_progress == 3)
@@ -456,5 +322,107 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
         ],
       ),
     );
+  }
+
+  // 動画広告の表示、進捗更新などの関数はここに追加
+
+  // 動画広告の読み込み
+  void _loadRewardedAd() {
+    RewardedAd.load(
+      adUnitId: 'ca-app-pub-3940256099942544/5224354917',  // 動画広告ユニットID
+      request: const AdRequest(),  // 広告リクエスト
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (RewardedAd ad) {
+          setState(() {
+            _rewardedAd = ad;  // 読み込まれた動画広告を保存
+          });
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          print('動画広告の読み込みに失敗しました: $error');
+        },
+      ),
+    );
+  }
+
+  // 動画広告を表示して進捗を更新
+  void _showRewardedAd() {
+    if (_rewardedAd != null) {
+      _rewardedAd!.show(onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
+        setState(() {
+          if (_progress < 3) _progress++;  // 進捗を1点進める
+          _controller.reset();
+          _animation = Tween<double>(begin: 0, end: _progress.toDouble() / 3).animate(_controller);
+          _controller.forward();
+        });
+      });
+    }
+  }
+
+  // レビューを書く
+  Future<void> _writeReview() async {
+    const reviewUrl = 'https://example.com/review';  // レビューのリンク
+    if (await canLaunch(reviewUrl)) {
+      await launch(reviewUrl);
+      setState(() {
+        _hasReviewed = true;
+        if (_progress < 3) _progress++;
+        _controller.reset();
+        _animation = Tween<double>(begin: 0, end: _progress.toDouble() / 3).animate(_controller);
+        _controller.forward();
+      });
+    }
+  }
+
+  // SharedPreferencesに進捗状況を保存する
+  Future<void> _saveProgress() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('adRemovalProgress', _progress);
+    await prefs.setBool('hasReviewed', _hasReviewed);
+  }
+
+  // SharedPreferencesから進捗状況を読み込む
+  Future<void> _loadProgress() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _progress = prefs.getInt('adRemovalProgress') ?? 1;
+      _hasReviewed = prefs.getBool('hasReviewed') ?? false;
+    });
+  }
+
+  // バナー広告を読み込む関数
+  void _loadBannerAds() {
+    _topBannerAd = BannerAd(
+      adUnitId: 'ca-app-pub-3940256099942544/6300978111',  // トップのバナー広告ユニットID
+      size: AdSize.banner,
+      request: const AdRequest(),
+      listener: BannerAdListener(
+        onAdLoaded: (_) {
+          setState(() {
+            _isTopBannerAdLoaded = true;
+          });
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          print('トップバナー広告の読み込みに失敗しました: $error');
+        },
+      ),
+    )..load();
+
+    _bottomBannerAd = BannerAd(
+      adUnitId: 'ca-app-pub-3940256099942544/6300978111',  // ボトムのバナー広告ユニットID
+      size: AdSize.banner,
+      request: const AdRequest(),
+      listener: BannerAdListener(
+        onAdLoaded: (_) {
+          setState(() {
+            _isBottomBannerAdLoaded = true;
+          });
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          print('ボトムバナー広告の読み込みに失敗しました: $error');
+        },
+      ),
+    )..load();
   }
 }
