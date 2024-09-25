@@ -24,10 +24,101 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
   bool _isTopBannerAdLoaded = false;
   bool _isBottomBannerAdLoaded = false;
 
+  // 言語選択関連の変数
+  String _selectedLanguage = 'en'; // 初期言語
+  final List<Map<String, String>> _languages = [
+    {'code': 'en', 'label': 'English'},
+    {'code': 'es', 'label': 'Español'},
+    {'code': 'zh_CN', 'label': '简体中文'},
+    {'code': 'zh_TW', 'label': '繁體中文'},
+    {'code': 'ja', 'label': '日本語'},
+    {'code': 'fr', 'label': 'Français'},
+    {'code': 'de', 'label': 'Deutsch'},
+    {'code': 'pt', 'label': 'Português'},
+    {'code': 'ko', 'label': '한국어'}
+  ];
+
+  // 翻訳マップ
+  final Map<String, Map<String, String>> _translations = {
+    'en': {
+      'progressDescription': 'Progress to Remove Ads',
+      'reviewButton': 'Write a Review',
+      'watchVideoButton': 'Watch Video to Remove Ads',
+      'stepsCompleted': 'steps completed',
+      'orText': 'or',
+      'adsRemovedMessage': 'Ads have been removed!',
+    },
+    'ja': {
+      'progressDescription': '広告を削除するための進捗',
+      'reviewButton': 'レビューを書く',
+      'watchVideoButton': '動画を見て広告を削除',
+      'stepsCompleted': 'ステップが完了しました',
+      'orText': 'または',
+      'adsRemovedMessage': '広告が削除されました！',
+    },
+    'es': {
+      'progressDescription': 'Progreso para eliminar anuncios',
+      'reviewButton': 'Escribir una reseña',
+      'watchVideoButton': 'Ver video para eliminar anuncios',
+      'stepsCompleted': 'pasos completados',
+      'orText': 'o',
+      'adsRemovedMessage': '¡Los anuncios han sido eliminados!',
+    },
+    'zh_CN': {
+      'progressDescription': '删除广告的进度',
+      'reviewButton': '写评论',
+      'watchVideoButton': '观看视频以删除广告',
+      'stepsCompleted': '步已完成',
+      'orText': '或',
+      'adsRemovedMessage': '广告已删除！',
+    },
+    'zh_TW': {
+      'progressDescription': '刪除廣告的進度',
+      'reviewButton': '寫評論',
+      'watchVideoButton': '觀看視頻以刪除廣告',
+      'stepsCompleted': '步已完成',
+      'orText': '或',
+      'adsRemovedMessage': '廣告已刪除！',
+    },
+    'fr': {
+      'progressDescription': 'Progrès pour supprimer les publicités',
+      'reviewButton': 'Écrire une critique',
+      'watchVideoButton': 'Regarder la vidéo pour supprimer les publicités',
+      'stepsCompleted': 'étapes terminées',
+      'orText': 'ou',
+      'adsRemovedMessage': 'Les annonces ont été supprimées!',
+    },
+    'de': {
+      'progressDescription': 'Fortschritt zum Entfernen von Anzeigen',
+      'reviewButton': 'Eine Bewertung schreiben',
+      'watchVideoButton': 'Video ansehen, um Anzeigen zu entfernen',
+      'stepsCompleted': 'Schritte abgeschlossen',
+      'orText': 'oder',
+      'adsRemovedMessage': 'Die Anzeigen wurden entfernt!',
+    },
+    'pt': {
+      'progressDescription': 'Progresso para remover anúncios',
+      'reviewButton': 'Escrever uma avaliação',
+      'watchVideoButton': 'Assista ao vídeo para remover anúncios',
+      'stepsCompleted': 'etapas concluídas',
+      'orText': 'ou',
+      'adsRemovedMessage': 'Os anúncios foram removidos!',
+    },
+    'ko': {
+      'progressDescription': '광고 제거 진행 상황',
+      'reviewButton': '리뷰 작성',
+      'watchVideoButton': '광고 제거를 위한 비디오 보기',
+      'stepsCompleted': '단계 완료',
+      'orText': '또는',
+      'adsRemovedMessage': '광고가 제거되었습니다!',
+    }
+  };
+
   @override
   void initState() {
     super.initState();
     _loadProgress();  // SharedPreferencesから進捗状況を読み込む
+    _loadLanguage();  // 言語設定を読み込む
     _controller = AnimationController(
       duration: const Duration(seconds: 1),  // 1秒間のアニメーション
       vsync: this,
@@ -39,6 +130,46 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
       _loadRewardedAd();  // 動画広告を読み込む
       _loadBannerAds();  // バナー広告を読み込む
     }
+  }
+
+  // 言語設定をSharedPreferencesから読み込む
+  Future<void> _loadLanguage() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _selectedLanguage = prefs.getString('selectedLanguage') ?? 'en';
+    });
+  }
+
+  // 言語設定をSharedPreferencesに保存する
+  Future<void> _saveLanguage(String languageCode) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selectedLanguage', languageCode);
+    setState(() {
+      _selectedLanguage = languageCode;
+    });
+  }
+
+  // 言語選択用のドロップダウンメニュー
+  Widget _buildLanguageDropdown() {
+    return DropdownButton<String>(
+      value: _selectedLanguage,
+      onChanged: (String? newLanguage) {
+        if (newLanguage != null) {
+          _saveLanguage(newLanguage);
+        }
+      },
+      items: _languages.map<DropdownMenuItem<String>>((Map<String, String> language) {
+        return DropdownMenuItem<String>(
+          value: language['code'],
+          child: Text(language['label']!),
+        );
+      }).toList(),
+    );
+  }
+
+  // 選択された言語に基づいて翻訳を取得する関数
+  String _getTranslation(String key) {
+    return _translations[_selectedLanguage]?[key] ?? '';
   }
 
   // バナー広告を読み込む関数
@@ -131,7 +262,7 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
     );
   }
 
-// ネットワークエラーメッセージを表示する関数
+  // ネットワークエラーメッセージを表示する関数
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
@@ -151,7 +282,6 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
       },
     );
   }
-
 
   // 動画広告を表示して、進捗を更新する関数
   void _showRewardedAd() {
@@ -197,6 +327,12 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Remove Ads'),  // AppBarのタイトル
+        actions: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: _buildLanguageDropdown(),  // 言語選択ドロップダウンを右上に表示
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -212,13 +348,12 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
                 mainAxisAlignment: MainAxisAlignment.center,  // コンテンツを中央に配置
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // 進捗バーを表示するアニメーション
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32.0),  // 横に余白を追加
                     child: Column(
                       children: [
-                        const Text(
-                          'Progress to Remove Ads',  // 進捗状況の説明
+                        Text(
+                          _getTranslation('progressDescription'),  // 進捗状況の説明
                           style: TextStyle(fontSize: 24),
                         ),
                         const SizedBox(height: 20),
@@ -235,7 +370,7 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
                         ),
                         const SizedBox(height: 20),
                         Text(
-                          '$_progress / 3 steps completed',  // 進捗状況を表示
+                          '$_progress / 3 ${_getTranslation('stepsCompleted')}',  // 進捗状況を表示
                           style: const TextStyle(fontSize: 20),
                         ),
                       ],
@@ -258,12 +393,12 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,  // ボタンのサイズに合わせる
-                            children: const [
-                              Icon(Icons.rate_review, size: 24),  // レビューアイコン
-                              SizedBox(width: 10),  // アイコンとテキストの間にスペースを追加
+                            children: [
+                              const Icon(Icons.rate_review, size: 24),  // レビューアイコン
+                              const SizedBox(width: 10),  // アイコンとテキストの間にスペースを追加
                               Text(
-                                'Write a Review',  // ボタンのテキスト
-                                style: TextStyle(fontSize: 18),
+                                _getTranslation('reviewButton'),  // レビューボタンのテキスト
+                                style: const TextStyle(fontSize: 18),
                               ),
                             ],
                           ),
@@ -271,9 +406,9 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
 
                         const SizedBox(height: 20),  // ボタンと「or」の間にスペースを追加
 
-                        const Text(  // or のテキスト
-                          'or',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                        Text(  // or のテキスト
+                          _getTranslation('orText'),
+                          style: const TextStyle(fontSize: 18, color: Colors.grey),
                         ),
 
                         const SizedBox(height: 20),  // 「or」と次のボタンの間にスペースを追加
@@ -288,12 +423,12 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,  // ボタンのサイズに合わせる
-                            children: const [
-                              Icon(Icons.play_circle, size: 24),  // 動画再生アイコン
-                              SizedBox(width: 10),  // アイコンとテキストの間にスペースを追加
+                            children: [
+                              const Icon(Icons.play_circle, size: 24),  // 動画再生アイコン
+                              const SizedBox(width: 10),  // アイコンとテキストの間にスペースを追加
                               Text(
-                                'Watch Video to Remove Ads',  // ボタンのテキスト
-                                style: TextStyle(fontSize: 18),
+                                _getTranslation('watchVideoButton'),  // 動画再生ボタンのテキスト
+                                style: const TextStyle(fontSize: 18),
                               ),
                             ],
                           ),
@@ -301,29 +436,12 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
                       ],
                     ),
 
-                  // 進捗が2点目か、レビュー済みの場合は動画再生のみ
-                  if (_progress == 2 || (_progress == 1 && _hasReviewed))
-                    ElevatedButton(
-                      onPressed: _rewardedAd != null ? _showRewardedAd : null,  // 動画再生
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),  // 角を丸くする
-                        ),
-                      ),
-                      child: const Text(
-                        'Watch Video to Remove Ads',  // ボタンのテキスト
-                        style: TextStyle(fontSize: 18),
-                      ),
-                    ),
-
                   const SizedBox(height: 40),
 
-                  // 進捗が完了した場合、広告が非表示になるメッセージを表示
                   if (_progress == 3)
-                    const Text(
-                      'Ads have been removed!',  // 広告が削除されたことを表示
-                      style: TextStyle(fontSize: 18, color: Colors.orange),
+                    Text(
+                      _getTranslation('adsRemovedMessage'),  // 広告削除完了メッセージ
+                      style: const TextStyle(fontSize: 18, color: Colors.orange),
                     ),
                 ],
               ),
