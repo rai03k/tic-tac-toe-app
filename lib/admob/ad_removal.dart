@@ -287,7 +287,7 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
                     ),
 
                   // 進捗が2点目またはレビュー済みの場合は動画再生のみ
-                  if (_progress == 1 && _hasReviewed) // 進捗が1でレビュー済みの場合のみ
+                  if (_progress == 2 || (_progress == 1 && _hasReviewed)) // 進捗が1でレビュー済みの場合のみ
                     ElevatedButton(
                       onPressed: _rewardedAd != null ? _showRewardedAd : null,  // 動画再生
                       style: ElevatedButton.styleFrom(
@@ -344,41 +344,61 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
     );
   }
 
-  // 動画広告を表示して進捗を更新
+// 動画広告を表示して、進捗を更新する関数
   void _showRewardedAd() {
     if (_rewardedAd != null) {
       _rewardedAd!.show(onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
         setState(() {
           if (_progress < 3) _progress++;  // 進捗を1点進める
-          _controller.reset();
+          _videoWatched = true;  // 動画視聴完了
+          _saveProgress();  // 進捗を保存
+          _controller.reset();  // アニメーションをリセット
           _animation = Tween<double>(begin: 0, end: _progress.toDouble() / 3).animate(_controller);
-          _controller.forward();
+          _controller.forward();  // アニメーションを再開
         });
+        // 動画視聴後、古い広告を破棄し、新しい広告をロードする
+        _rewardedAd!.dispose();  // 古い広告を破棄
+        _loadRewardedAd();  // 新しい広告をロード
       });
     }
   }
 
-  // レビューを書く
+
+// レビューを書いて進捗を更新する関数
   Future<void> _writeReview() async {
     const reviewUrl = 'https://example.com/review';  // レビューのリンク
     if (await canLaunch(reviewUrl)) {
-      await launch(reviewUrl);
+      await launch(reviewUrl);  // リンクを起動
       setState(() {
-        _hasReviewed = true;
-        if (_progress < 3) _progress++;
-        _controller.reset();
-        _animation = Tween<double>(begin: 0, end: _progress.toDouble() / 3).animate(_controller);
-        _controller.forward();
+        _hasReviewed = true;  // レビュー完了
+        if (_progress < 3) _progress++;  // 進捗を1点進める
+        _saveProgress();  // 進捗を保存
       });
+
+      // レビュー完了後、画面をリロードしてボタン表示を更新
+      await Future.delayed(Duration(seconds: 1));  // 少し待機してからリロード
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (BuildContext context) => const AdRemovalScreen()),
+      );
     }
   }
 
+
+
   // SharedPreferencesに進捗状況を保存する
+// SharedPreferences に進捗を保存する関数
   Future<void> _saveProgress() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('adRemovalProgress', _progress);
-    await prefs.setBool('hasReviewed', _hasReviewed);
+    SharedPreferences prefs = await SharedPreferences.getInstance();  // SharedPreferencesのインスタンスを取得
+    await prefs.setInt('adRemovalProgress', _progress);  // 現在の進捗を保存
+    await prefs.setBool('hasReviewed', _hasReviewed);  // レビュー完了状態を保存
+    await prefs.setBool('videoWatched', _videoWatched);  // 動画視聴状態を保存
+    if (_progress == 3) {
+      _adsRemoved = true;
+      await prefs.setBool('adsRemoved', true);  // 広告が削除されたことを保存
+    }
   }
+
 
   // SharedPreferencesから進捗状況を読み込む
   Future<void> _loadProgress() async {
