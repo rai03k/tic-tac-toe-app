@@ -14,17 +14,20 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
   final GameBoard _gameBoard = GameBoard(); // ゲームボードのインスタンスを作成
 
   // ボードをリセットする関数
-  void _resetBoard() {
+  Future<void> _resetBoard() async {
     setState(() {
       _gameBoard.resetBoard();  // ゲームボードをリセット
     });
   }
 
   // タップを処理する関数
-  void _handleTap(int index) {
-    setState(() {
-      _gameBoard.handleTap(index);  // タップされた位置の処理を実行
-    });
+  Future<void> _handleTap(int index) async {
+    bool success = await _gameBoard.handleTap(index);  // タップ処理を実行
+    if (success) {
+      setState(() {
+        // タップが成功した場合にUIを更新
+      });
+    }
   }
 
   @override
@@ -59,14 +62,14 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
                 decoration: BoxDecoration(
                   color: _gameBoard.winner.isEmpty
                       ? (_gameBoard.isX ? Colors.redAccent : Colors.blueAccent) // プレイヤーのターンに応じた色
-                      : (_gameBoard.isX ? Colors.blueAccent : Colors.redAccent), // 勝者に応じた色：Player 1なら赤、Player 2なら青
+                      : (_gameBoard.isX ? Colors.blueAccent : Colors.redAccent), // 勝者に応じた色
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(80),
                     bottomRight: Radius.circular(80),
                   ),
                 ),
                 alignment: Alignment.bottomCenter,
-                height: headerHeight, // ヘッダーの高さを設定
+                height: headerHeight,  // ヘッダーの高さを設定
                 child: Text(
                   _gameBoard.winner.isEmpty
                       ? (_gameBoard.isX ? 'Player 1\'s Turn' : 'Player 2\'s Turn')  // 勝者がいない場合、プレイヤーを表示
@@ -74,14 +77,13 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
                       ? 'Player 2 Wins!' // Player 1が勝者ならPlayer 2が勝った場合のテキスト
                       : 'Player 1 Wins!'), // Player 2が勝者ならPlayer 1が勝った場合のテキスト
                   style: TextStyle(
-                    color: isDarkMode ? Colors.white : Colors.white,
+                    color: isDarkMode ? Colors.black : Colors.white,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.center,
                 ),
               ),
-
 
               // プレイヤー表示部分
               Container(

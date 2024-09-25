@@ -1,6 +1,7 @@
 import 'package:audioplayers/audioplayers.dart';  // AudioPlayerをインポート
 import 'dart:math';
 
+
 class GameBoard {
   List<String> board = List.generate(9, (index) => ' '); // ボードの初期化
   bool isX = true; // 現在のプレイヤーがXかどうかを判定
@@ -13,6 +14,7 @@ class GameBoard {
   int _tapCount = 0; // タップ回数を管理して音階を変更する
   bool isAiMode = false; // 1vsAIモードかどうか
   int maxDepth = 4; // ミニマックスアルゴリズムの深さを設定
+  bool isResetting = false; // リセット中かどうかを判定
 
   // 音階のリスト
   final List<String> _soundFiles = [
@@ -30,19 +32,23 @@ class GameBoard {
   }
 
 // ボードをリセットする
-  void resetBoard() {
+  Future<void> resetBoard() async {
+    isResetting = true; // リセット中フラグを立てる
     board = List.generate(9, (index) => ' '); // ボードをリセット
-    isX = true; // Xプレイヤーから開始
     winner = ''; // 勝者のリセット
     winningBlocks = []; // 勝利ラインのリセット
     xMoves = []; // Xプレイヤーの動きをリセット
     oMoves = []; // Oプレイヤーの動きをリセット
     fadedIndex = null; // 薄いマークのリセット
     _tapCount = 0; // タップカウントもリセット
+    isX = true; // 必ずXプレイヤーから開始
+    await Future.delayed(Duration(milliseconds: 500)); // 500msの遅延
+    isResetting = false; // リセット完了
   }
 
   // プレイヤーの動きを処理
   Future<bool> handleTap(int index) async {
+    if (isResetting) return false; // リセット中なら処理を行わない
     if (winner.isNotEmpty) {
       // 勝敗が決定している場合はタップを無視
       return false;
@@ -52,6 +58,13 @@ class GameBoard {
       // 無効なタップ音を再生
       await _playInvalidTapSound();
       return false;
+    }
+
+    // 最初のターンは必ずX、2番目は必ずO
+    if (xMoves.isEmpty && oMoves.isEmpty) {
+      isX = true;  // 最初はX
+    } else if (xMoves.length == 1 && oMoves.isEmpty) {
+      isX = false; // 2番目は必ずO
     }
 
     // 現在のプレイヤーの動きをボードに反映
@@ -79,6 +92,15 @@ class GameBoard {
 
     // プレイヤーを交代
     isX = !isX;
+
+    // 1vsAIモードの場合、AIのターンが来る
+    if (isAiMode && !isX && !isResetting) {
+      await Future.delayed(Duration(milliseconds: 500)); // 少し遅らせてAIの動きを模倣
+      int aiMove = findBestMove();
+      if (!isResetting) { // リセット中でなければAIの手を処理
+        await handleTap(aiMove); // AIの手を処理
+      }
+    }
 
     return true; // タップが成功したことを返す
   }
