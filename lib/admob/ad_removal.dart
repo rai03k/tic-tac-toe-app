@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';  // url_launcher をインポート
 import 'package:google_mobile_ads/google_mobile_ads.dart';  // 動画広告をインポート
+import 'dart:io';  // Platformを使用するために追加
 
 class AdRemovalScreen extends StatefulWidget {
   const AdRemovalScreen({super.key});
@@ -328,21 +329,33 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
 
   // 動画広告の読み込み
   void _loadRewardedAd() {
+    String rewardedAdUnitId;
+
+    // デバイスごとにリワード広告ユニットIDを設定
+    if (Platform.isAndroid) {
+      rewardedAdUnitId = 'ca-app-pub-1187210314934709/3878530320';  // Android用のリワード広告ユニットID
+    } else if (Platform.isIOS) {
+      rewardedAdUnitId = 'ca-app-pub-1187210314934709/3181994937';  // iOS用のリワード広告ユニットID
+    } else {
+      throw UnsupportedError('Unsupported platform');
+    }
+
     RewardedAd.load(
-      adUnitId: 'ca-app-pub-3940256099942544/5224354917',  // 動画広告ユニットID
-      request: const AdRequest(),  // 広告リクエスト
+      adUnitId: rewardedAdUnitId,  // ユニットIDを設定
+      request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (RewardedAd ad) {
           setState(() {
-            _rewardedAd = ad;  // 読み込まれた動画広告を保存
+            _rewardedAd = ad;  // 読み込まれたリワード広告を保存
           });
         },
         onAdFailedToLoad: (LoadAdError error) {
-          print('動画広告の読み込みに失敗しました: $error');
+          print('リワード広告の読み込みに失敗しました: $error');
         },
       ),
     );
   }
+
 
 // 動画広告を表示して、進捗を更新する関数
   void _showRewardedAd() {
@@ -364,11 +377,23 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
   }
 
 
-// レビューを書いて進捗を更新する関数
   Future<void> _writeReview() async {
-    const reviewUrl = 'https://example.com/review';  // レビューのリンク
-    if (await canLaunch(reviewUrl)) {
-      await launch(reviewUrl);  // リンクを起動
+    String reviewUrl;
+
+    // プラットフォームに応じてURLを変更
+    if (Platform.isAndroid) {
+      reviewUrl = 'https://play.google.com/store/search?q=jin.mizoi';
+    } else if (Platform.isIOS) {
+      reviewUrl = 'https://apps.apple.com/jp/search?term=jin.mizoi';
+    } else {
+      // 対応していないプラットフォームの場合
+      reviewUrl = 'https://example.com/review';  // デフォルトのリンク
+    }
+
+    final Uri url = Uri.parse(reviewUrl);
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);  // リンクを起動
       setState(() {
         _hasReviewed = true;  // レビュー完了
         if (_progress < 3) _progress++;  // 進捗を1点進める
@@ -376,13 +401,17 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
       });
 
       // レビュー完了後、画面をリロードしてボタン表示を更新
-      await Future.delayed(Duration(seconds: 1));  // 少し待機してからリロード
+      await Future.delayed(const Duration(seconds: 1));  // 少し待機してからリロード
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (BuildContext context) => const AdRemovalScreen()),
       );
+    } else {
+      // リンクが開けなかった場合のエラーハンドリング
+      print('Could not launch $reviewUrl');
     }
   }
+
 
 
 
@@ -413,8 +442,22 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
 
   // バナー広告を読み込む関数
   void _loadBannerAds() {
+    String topBannerAdUnitId;
+    String bottomBannerAdUnitId;
+
+    // デバイスごとに広告ユニットIDを設定
+    if (Platform.isAndroid) {
+      topBannerAdUnitId = 'ca-app-pub-1187210314934709/9243517580';  // Android用のトップバナー広告ユニットID
+      bottomBannerAdUnitId = 'ca-app-pub-1187210314934709/9243517580';  // Android用のボトムバナー広告ユニットID
+    } else if (Platform.isIOS) {
+      topBannerAdUnitId = 'ca-app-pub-1187210314934709/7887834192';  // iOS用のトップバナー広告ユニットID
+      bottomBannerAdUnitId = 'ca-app-pub-1187210314934709/7887834192';  // iOS用のボトムバナー広告ユニットID
+    } else {
+      throw UnsupportedError('Unsupported platform');
+    }
+
     _topBannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-3940256099942544/6300978111',  // トップのバナー広告ユニットID
+      adUnitId: topBannerAdUnitId,  // トップのバナー広告ユニットID
       size: AdSize.banner,
       request: const AdRequest(),
       listener: BannerAdListener(
@@ -431,7 +474,7 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
     )..load();
 
     _bottomBannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-3940256099942544/6300978111',  // ボトムのバナー広告ユニットID
+      adUnitId: bottomBannerAdUnitId,  // ボトムのバナー広告ユニットID
       size: AdSize.banner,
       request: const AdRequest(),
       listener: BannerAdListener(

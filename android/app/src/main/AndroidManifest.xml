@@ -1,6 +1,7 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.mizoijin.tictactoe.tictactoe">
     <application
-        android:label="tic_tac_toe_app"
+        android:label="TicTacToe"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -18,7 +19,7 @@
             <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
-              android:value="ca-app-pub-3940256099942544~3347511713"/>
+              android:value="ca-app-pub-1187210314934709~2404407371"/>
               />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>

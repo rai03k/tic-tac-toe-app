@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';  // Platformを使用するために追加
 
 class BannerAdWidget extends StatefulWidget {
   const BannerAdWidget({super.key});
@@ -33,8 +34,19 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
 
   // バナー広告を読み込む関数
   void _loadBannerAd() {
+    String adUnitId;
+
+    // AndroidとiOSで異なる広告ユニットIDを設定
+    if (Platform.isAndroid) {
+      adUnitId = 'ca-app-pub-1187210314934709/9243517580';  // Androidのバナー広告ユニットID
+    } else if (Platform.isIOS) {
+      adUnitId = 'ca-app-pub-1187210314934709/7887834192';  // iOSのバナー広告ユニットID
+    } else {
+      throw UnsupportedError('Unsupported platform');
+    }
+
     _bannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-3940256099942544/9214589741',  // 実際の広告ユニットIDに置き換えてください
+      adUnitId: adUnitId,  // デバイスごとに異なる広告ユニットIDを使用
       size: AdSize.banner,  // バナー広告のサイズ
       request: const AdRequest(),  // 広告リクエスト
       listener: BannerAdListener(
