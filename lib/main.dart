@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';  // 画面の向きを固定するためのインポート
-import 'package:device_preview/device_preview.dart';  // DevicePreviewのインポート
-import 'package:flutter/foundation.dart';  // kReleaseMode用
 import 'screens/menu_screen.dart';  // メニュー画面をインポート
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -14,12 +12,7 @@ void main() async {
     DeviceOrientation.portraitUp,
   ]);
 
-  runApp(
-    DevicePreview(
-      enabled: !kReleaseMode,  // リリースモードでは無効化する
-      builder: (context) => const MyApp(),  // アプリの起動
-    ),
-  );
+  runApp(const MyApp());  // DevicePreviewを削除して通常のアプリ起動
 }
 
 class MyApp extends StatelessWidget {
@@ -30,10 +23,8 @@ class MyApp extends StatelessWidget {
     final brightness = MediaQuery.of(context).platformBrightness;  // システムの明るさを取得
 
     return MaterialApp(
-      useInheritedMediaQuery: true,  // これがDevicePreviewに必要
-      locale: DevicePreview.locale(context),  // DevicePreviewのロケールを適用
-      builder: DevicePreview.appBuilder,  // DevicePreviewのビルダーを適用
       title: 'Tic Tac Toe',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.light,  // ライトモードのテーマ
       ),

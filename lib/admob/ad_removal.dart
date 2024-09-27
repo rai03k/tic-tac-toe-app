@@ -231,7 +231,7 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
                   const SizedBox(height: 40),
 
                   // 進捗が1点目または2点目の場合、レビューか動画再生が可能
-                  if ((_progress == 1 || _progress == 2) && !_hasReviewed)
+                  if (_progress == 1 && !_hasReviewed) // 進捗が1かつレビューが未完了の時のみ表示
                     Column(
                       children: [
                         ElevatedButton(
