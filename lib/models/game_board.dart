@@ -15,6 +15,7 @@ class GameBoard {
   bool isAiMode = false; // 1vsAIモードかどうか
   int maxDepth = 4; // ミニマックスアルゴリズムの深さを設定
   bool isResetting = false; // リセット中かどうかを判定
+  bool hasPlacedMark = false; // プレイヤーがマークを置いたかどうかを追跡
 
   // 音階のリスト
   final List<String> _soundFiles = [
@@ -48,7 +49,7 @@ class GameBoard {
 
   // プレイヤーの動きを処理
   Future<bool> handleTap(int index) async {
-    if (isResetting) return false; // リセット中なら処理を行わない
+    if (isResetting || hasPlacedMark) return false; // リセット中なら処理を行わない
     if (winner.isNotEmpty) {
       // 勝敗が決定している場合はタップを無視
       return false;
@@ -59,6 +60,9 @@ class GameBoard {
       await _playInvalidTapSound();
       return false;
     }
+
+    // マークを1つだけ置けるようにするため、マークが置かれたらフラグを設定
+    hasPlacedMark = true;
 
     // 最初のターンは必ずX、2番目は必ずO
     if (xMoves.isEmpty && oMoves.isEmpty) {
@@ -92,6 +96,9 @@ class GameBoard {
 
     // プレイヤーを交代
     isX = !isX;
+
+    // 次のプレイヤーがマークを置けるようにフラグをリセット
+    hasPlacedMark = false;
 
     // 1vsAIモードの場合、AIのターンが来る
     if (isAiMode && !isX && !isResetting) {
