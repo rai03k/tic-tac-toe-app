@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';  // url_launcher をインポート
 import 'package:google_mobile_ads/google_mobile_ads.dart';  // 動画広告をインポート
 import 'dart:io';  // Platformを使用するために追加
+import 'package:in_app_review/in_app_review.dart';  // in_app_review をインポート
 
 class AdRemovalScreen extends StatefulWidget {
   const AdRemovalScreen({super.key});
@@ -385,34 +386,47 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
 
 
   Future<void> _writeReview() async {
-    String reviewUrl;
+    final InAppReview inAppReview = InAppReview.instance;
 
-    // プラットフォームに応じてURLを変更
-    if (Platform.isAndroid) {
-      reviewUrl = 'https://play.google.com/store/search?q=jin.mizoi';
-    } else if (Platform.isIOS) {
-      reviewUrl = 'https://apps.apple.com/jp/app/tictactoe/id6723864513';
-    } else {
-      // 対応していないプラットフォームの場合
-      reviewUrl = 'https://example.com/review';  // デフォルトのリンク
-    }
+    // 全画面の操作不能なロードインジケーターを表示
+    showDialog(
+      context: context,
+      barrierDismissible: false,  // 外側をタップしても閉じないようにする
+      builder: (BuildContext context) {
+        return WillPopScope(
+          onWillPop: () async => false,  // バックボタンで閉じないようにする
+          child: const Center(
+            child: CircularProgressIndicator(),  // 中央にロードインジケーターを表示
+          ),
+        );
+      },
+    );
 
-    final Uri url = Uri.parse(reviewUrl);
+    try {
+      if (await inAppReview.isAvailable()) {
+        // アプリ内レビューリクエストを送信
+        await inAppReview.requestReview();
 
-    setState(() {
-      _hasReviewed = true;  // レビュー完了フラグを立てる
-      _progress = 2;  // 進捗を2に進める
-      _saveProgress();  // 進捗を保存
-    });
+        // リクエストが完了したらダイアログを閉じる
+        Navigator.of(context).pop();
 
-    // URLに遷移させる
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url);  // リンクを起動
-    } else {
-      // リンクが開けなかった場合のエラーハンドリング
-      print('Could not launch $reviewUrl');
+        // 成功時に進捗やレビューの状態を保存
+        setState(() {
+          _hasReviewed = true;  // レビュー完了フラグを立てる
+          _progress = 2;        // 進捗を2に進める
+          _saveProgress();      // 進捗を保存
+        });
+      } else {
+        // アプリ内レビューが利用できない場合
+        throw Exception('アプリ内レビューが利用できません');
+      }
+    } catch (e) {
+      // エラー発生時もダイアログを閉じる
+      Navigator.of(context).pop();
+      print(e);
     }
   }
+
 
 
 
