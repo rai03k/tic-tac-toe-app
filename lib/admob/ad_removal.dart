@@ -369,6 +369,13 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
           _animation = Tween<double>(begin: 0, end: _progress.toDouble() / 3).animate(_controller);
           _controller.forward();  // アニメーションを再開
         });
+        // 動画視聴後、画面をリロードして進捗を反映
+        Future.delayed(const Duration(seconds: 1), () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (BuildContext context) => const AdRemovalScreen()),
+          );
+        });
         // 動画視聴後、古い広告を破棄し、新しい広告をロードする
         _rewardedAd!.dispose();  // 古い広告を破棄
         _loadRewardedAd();  // 新しい広告をロード
@@ -384,7 +391,7 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
     if (Platform.isAndroid) {
       reviewUrl = 'https://play.google.com/store/search?q=jin.mizoi';
     } else if (Platform.isIOS) {
-      reviewUrl = 'https://apps.apple.com/jp/search?term=jin.mizoi';
+      reviewUrl = 'https://apps.apple.com/jp/app/tictactoe/id6723864513';
     } else {
       // 対応していないプラットフォームの場合
       reviewUrl = 'https://example.com/review';  // デフォルトのリンク
@@ -392,20 +399,15 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
 
     final Uri url = Uri.parse(reviewUrl);
 
+    setState(() {
+      _hasReviewed = true;  // レビュー完了フラグを立てる
+      _progress = 2;  // 進捗を2に進める
+      _saveProgress();  // 進捗を保存
+    });
+
+    // URLに遷移させる
     if (await canLaunchUrl(url)) {
       await launchUrl(url);  // リンクを起動
-      setState(() {
-        _hasReviewed = true;  // レビュー完了
-        if (_progress < 3) _progress++;  // 進捗を1点進める
-        _saveProgress();  // 進捗を保存
-      });
-
-      // レビュー完了後、画面をリロードしてボタン表示を更新
-      await Future.delayed(const Duration(seconds: 1));  // 少し待機してからリロード
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (BuildContext context) => const AdRemovalScreen()),
-      );
     } else {
       // リンクが開けなかった場合のエラーハンドリング
       print('Could not launch $reviewUrl');
