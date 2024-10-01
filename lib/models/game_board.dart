@@ -30,6 +30,21 @@ class GameBoard {
 
   GameBoard() {
     _audioPlayer = AudioPlayer(); // AudioPlayerの初期化
+    _audioPlayer.setAudioContext(AudioContext(
+      android: AudioContextAndroid(
+        isSpeakerphoneOn: false,
+        stayAwake: false,
+        contentType: AndroidContentType.sonification,
+        usageType: AndroidUsageType.alarm, // マナーモードでも音を鳴らす
+        audioFocus: AndroidAudioFocus.gain, // フォーカスを取得して音を再生
+      ),
+      iOS: AudioContextIOS(
+        category: AVAudioSessionCategory.playback, // マナーモードでも音を鳴らす
+        options: <AVAudioSessionOptions>{
+          AVAudioSessionOptions.mixWithOthers, // 他の音とミックス
+        },
+      ),
+    ));
   }
 
 // ボードをリセットする
