@@ -186,85 +186,105 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          if (!_adsRemoved && _isTopBannerAdLoaded)
-            Container(
-              width: _topBannerAd!.size.width.toDouble(),
-              height: _topBannerAd!.size.height.toDouble(),
-              child: AdWidget(ad: _topBannerAd!),  // トップバナー広告ウィジェット
-            ),
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,  // コンテンツを中央に配置
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32.0),  // 横に余白を追加
-                    child: Column(
-                      children: [
-                        Text(
-                          _getTranslation('progressDescription'),  // 進捗状況の説明
-                          style: const TextStyle(fontSize: 24),
-                        ),
-                        const SizedBox(height: 20),
-                        AnimatedBuilder(
-                          animation: _animation,  // アニメーションを監視
-                          builder: (context, child) {
-                            return LinearProgressIndicator(
-                              value: _progress == 3 ? 1 : _animation.value,  // 進捗バーの割合
-                              minHeight: 20,  // 進捗バーの高さ
-                              color: _progress == 3 ? Colors.orange : Colors.orangeAccent,  // 進捗バーの色
-                              backgroundColor: Colors.grey[300],  // 背景色
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          '$_progress / 3 ${_getTranslation('stepsCompleted')}',  // 進捗状況を表示
-                          style: const TextStyle(fontSize: 20),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 40),
-
-                  // 進捗が1点目または2点目の場合、レビューか動画再生が可能
-                  if (_progress == 1 && !_hasReviewed) // 進捗が1かつレビューが未完了の時のみ表示
-                    Column(
-                      children: [
-                        ElevatedButton(
-                          onPressed: _writeReview,  // レビューを書く
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),  // 角を丸くする
+          Column(
+            children: [
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,  // コンテンツを中央に配置
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32.0),  // 横に余白を追加
+                        child: Column(
+                          children: [
+                            Text(
+                              _getTranslation('progressDescription'),  // 進捗状況の説明
+                              style: const TextStyle(fontSize: 24),
                             ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,  // ボタンのサイズに合わせる
-                            children: [
-                              const Icon(Icons.rate_review, size: 24),  // レビューアイコン
-                              const SizedBox(width: 10),  // アイコンとテキストの間にスペースを追加
-                              Text(
-                                _getTranslation('reviewButton'),  // レビューボタンのテキスト
-                                style: const TextStyle(fontSize: 18),
+                            const SizedBox(height: 20),
+                            AnimatedBuilder(
+                              animation: _animation,  // アニメーションを監視
+                              builder: (context, child) {
+                                return LinearProgressIndicator(
+                                  value: _progress == 3 ? 1 : _animation.value,  // 進捗バーの割合
+                                  minHeight: 20,  // 進捗バーの高さ
+                                  color: _progress == 3 ? Colors.orange : Colors.orangeAccent,  // 進捗バーの色
+                                  backgroundColor: Colors.grey[300],  // 背景色
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              '$_progress / 3 ${_getTranslation('stepsCompleted')}',  // 進捗状況を表示
+                              style: const TextStyle(fontSize: 20),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 40),
+
+                      // 進捗が1点目または2点目の場合、レビューか動画再生が可能
+                      if (_progress == 1 && !_hasReviewed) // 進捗が1かつレビューが未完了の時のみ表示
+                        Column(
+                          children: [
+                            ElevatedButton(
+                              onPressed: _writeReview,  // レビューを書く
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),  // 角を丸くする
+                                ),
                               ),
-                            ],
-                          ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,  // ボタンのサイズに合わせる
+                                children: [
+                                  const Icon(Icons.rate_review, size: 24),  // レビューアイコン
+                                  const SizedBox(width: 10),  // アイコンとテキストの間にスペースを追加
+                                  Text(
+                                    _getTranslation('reviewButton'),  // レビューボタンのテキスト
+                                    style: const TextStyle(fontSize: 18),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),  // ボタンと「or」の間にスペースを追加
+
+                            Text(  // or のテキスト
+                              _getTranslation('orText'),
+                              style: const TextStyle(fontSize: 18, color: Colors.grey),
+                            ),
+
+                            const SizedBox(height: 20),  // 「or」と次のボタンの間にスペースを追加
+
+                            ElevatedButton(
+                              onPressed: _rewardedAd != null ? _showRewardedAd : null,  // 動画再生
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),  // 角を丸くする
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,  // ボタンのサイズに合わせる
+                                children: [
+                                  const Icon(Icons.play_circle, size: 24),  // 動画再生アイコン
+                                  const SizedBox(width: 10),  // アイコンとテキストの間にスペースを追加
+                                  Text(
+                                    _getTranslation('watchVideoButton'),  // 動画再生ボタンのテキスト
+                                    style: const TextStyle(fontSize: 18),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
 
-                        const SizedBox(height: 20),  // ボタンと「or」の間にスペースを追加
-
-                        Text(  // or のテキスト
-                          _getTranslation('orText'),
-                          style: const TextStyle(fontSize: 18, color: Colors.grey),
-                        ),
-
-                        const SizedBox(height: 20),  // 「or」と次のボタンの間にスペースを追加
-
+                      // 進捗が2点目またはレビュー済みの場合は動画再生のみ
+                      if (_progress == 2 || (_progress == 1 && _hasReviewed)) // 進捗が1でレビュー済みの場合のみ
                         ElevatedButton(
                           onPressed: _rewardedAd != null ? _showRewardedAd : null,  // 動画再生
                           style: ElevatedButton.styleFrom(
@@ -273,53 +293,46 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
                               borderRadius: BorderRadius.circular(30),  // 角を丸くする
                             ),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,  // ボタンのサイズに合わせる
-                            children: [
-                              const Icon(Icons.play_circle, size: 24),  // 動画再生アイコン
-                              const SizedBox(width: 10),  // アイコンとテキストの間にスペースを追加
-                              Text(
-                                _getTranslation('watchVideoButton'),  // 動画再生ボタンのテキスト
-                                style: const TextStyle(fontSize: 18),
-                              ),
-                            ],
+                          child: Text(
+                            _getTranslation('watchVideoButton'),  // ボタンのテキスト
+                            style: const TextStyle(fontSize: 18),
                           ),
                         ),
-                      ],
-                    ),
 
-                  // 進捗が2点目またはレビュー済みの場合は動画再生のみ
-                  if (_progress == 2 || (_progress == 1 && _hasReviewed)) // 進捗が1でレビュー済みの場合のみ
-                    ElevatedButton(
-                      onPressed: _rewardedAd != null ? _showRewardedAd : null,  // 動画再生
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),  // 角を丸くする
+                      const SizedBox(height: 40),
+
+                      if (_progress == 3)
+                        Text(
+                          _getTranslation('adsRemovedMessage'),  // 広告削除完了メッセージ
+                          style: const TextStyle(fontSize: 18, color: Colors.orange),
                         ),
-                      ),
-                      child: Text(
-                        _getTranslation('watchVideoButton'),  // ボタンのテキスト
-                        style: const TextStyle(fontSize: 18),
-                      ),
-                    ),
-
-                  const SizedBox(height: 40),
-
-                  if (_progress == 3)
-                    Text(
-                      _getTranslation('adsRemovedMessage'),  // 広告削除完了メッセージ
-                      style: const TextStyle(fontSize: 18, color: Colors.orange),
-                    ),
-                ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (!_adsRemoved && _isTopBannerAdLoaded)
+            Positioned(
+              top: 0,  // 画面の上部に固定
+              left: 0,
+              right: 0,
+              child: Container(
+                width: _topBannerAd!.size.width.toDouble(),
+                height: _topBannerAd!.size.height.toDouble(),
+                child: AdWidget(ad: _topBannerAd!),  // トップバナー広告ウィジェット
               ),
             ),
-          ),
           if (!_adsRemoved && _isBottomBannerAdLoaded)
-            Container(
-              width: _bottomBannerAd!.size.width.toDouble(),
-              height: _bottomBannerAd!.size.height.toDouble(),
-              child: AdWidget(ad: _bottomBannerAd!),  // ボトムバナー広告ウィジェット
+            Positioned(
+              bottom: 0,  // 画面の下部に固定
+              left: 0,
+              right: 0,
+              child: Container(
+                width: _bottomBannerAd!.size.width.toDouble(),
+                height: _bottomBannerAd!.size.height.toDouble(),
+                child: AdWidget(ad: _bottomBannerAd!),  // ボトムバナー広告ウィジェット
+              ),
             ),
         ],
       ),
