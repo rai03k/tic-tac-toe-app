@@ -4,6 +4,7 @@ import '../admob/banner_ad_widget.dart';  // 再利用するバナー広告ウ�
 import 'one_vs_one_game.dart';  // 1vs1ゲーム画面をインポート
 import 'ai_game_screen.dart';  // 1vsAIゲーム画面をインポート
 import '../admob/ad_removal.dart';  // 広告リセット画面をインポート
+import '../data/language.dart';  // 言語データをインポート
 
 class MenuScreen extends StatefulWidget {
   const MenuScreen({super.key});
@@ -14,11 +15,48 @@ class MenuScreen extends StatefulWidget {
 
 class _MenuScreenState extends State<MenuScreen> {
   bool _adsRemoved = false; // 広告が削除されているかのフラグ
+  String _selectedLanguage = 'en'; // 初期言語
 
   @override
   void initState() {
     super.initState();
     _loadAdRemovalStatus();  // 広告削除のステータスを読み込む
+    _loadLanguage();  // 言語設定を読み込む
+  }
+
+  // 言語設定をSharedPreferencesから読み込む
+  Future<void> _loadLanguage() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _selectedLanguage = prefs.getString('selectedLanguage') ?? 'en';
+    });
+  }
+
+  // 言語設定をSharedPreferencesに保存する
+  Future<void> _saveLanguage(String languageCode) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selectedLanguage', languageCode);
+    setState(() {
+      _selectedLanguage = languageCode;
+    });
+  }
+
+  // 言語選択用のドロップダウンメニュー
+  Widget _buildLanguageDropdown() {
+    return DropdownButton<String>(
+      value: _selectedLanguage,
+      onChanged: (String? newLanguage) {
+        if (newLanguage != null) {
+          _saveLanguage(newLanguage);
+        }
+      },
+      items: LanguageData.supportedLanguages.map<DropdownMenuItem<String>>((language) {
+        return DropdownMenuItem<String>(
+          value: language['code'],
+          child: Text(language['label']!),
+        );
+      }).toList(),
+    );
   }
 
   // SharedPreferencesから広告削除のステータスを読み込む関数
@@ -39,6 +77,16 @@ class _MenuScreenState extends State<MenuScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: Text(LanguageData.getTranslation(_selectedLanguage, 'menuTitle')), // タイトルを翻訳対応
+        centerTitle: true,  // タイトルを中央に配置
+        actions: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: _buildLanguageDropdown(),  // 言語選択ドロップダウンを右上に表示
+          ),
+        ],
+      ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,  // ボタンと広告の間にスペースを確保
         children: [
@@ -90,17 +138,23 @@ class _MenuScreenState extends State<MenuScreen> {
                   ),
                   const SizedBox(height: 40),  // ボタンの間にスペースを追加
 
-                  // "coming soon"ボタン（無効）
+                  // "Online" ボタン
                   _buildMenuOption(
                     context,
                     Icons.person,
                     Icons.public,
-                    'coming soon',
-                    null,  // 無効なボタン
-                    color: Colors.grey[300],  // グレーアウト
+                    LanguageData.getTranslation(_selectedLanguage, 'onlineButton'), // ボタンを翻訳対応
+                        () {
+                      // 選択画面に遷移
+                      Navigator.pushNamed(context, '/selection');
+                    },
+                    gradient: const LinearGradient(
+                      colors: [Colors.green, Colors.tealAccent],  // グラデーションカラーを設定
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
                   ),
                   const SizedBox(height: 40),  // ボタンの間にスペースを追加
-
                   // 広告リセット画面へのボタン
                   _buildMenuOption(
                     context,
@@ -168,7 +222,7 @@ class _MenuScreenState extends State<MenuScreen> {
             Text(
               text,  // ボタンのテキスト
               style: TextStyle(
-                fontSize: text == 'coming soon' ? 15 : 35,  // "coming soon"は小さめのフォントにする
+                fontSize: text == 'オンライン' ? 25 : 35,  // "coming soon"は小さめのフォントにする
                 fontWeight: FontWeight.bold,  // 太字にする
                 color: Colors.white,  // テキストの色を白にする
               ),

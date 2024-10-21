@@ -136,7 +136,6 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
               Expanded(
                 child: Container(
                   width: screenWidth,  // 画面の幅を取得
-                  color: isDarkMode ? Colors.grey[800] : Colors.grey[300],  // ダークモードに応じた背景色
                   child: GameBoardWidget(
                     board: _gameBoard.board,  // ゲームボードの状態をウィジェットに渡す
                     winningBlocks: _gameBoard.winningBlocks,  // 勝利ブロックを渡す

@@ -1,10 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';  // 画面の向きを固定するためのインポート
 import 'screens/menu_screen.dart';  // メニュー画面をインポート
+import 'screens/selection_screen.dart';  // 選択画面をインポート
+import 'screens/matching_screen.dart';  // マッチング画面をインポート
+import 'screens/online_game_screen.dart';  // オンラインゲーム画面をインポート
+import 'package:firebase_core/firebase_core.dart';  // Firebaseコアライブラリをインポート
+import 'firebase_options.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:device_preview/device_preview.dart';  // DevicePreviewのインポート
+import 'package:flutter/foundation.dart';  // kReleaseMode用
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();  // バインディングの初期化
+  await Firebase.initializeApp(
+    //options: DefaultFirebaseOptions.currentPlatform,  // 各プラットフォームの設定を使用
+  );
   MobileAds.instance.initialize();  // AdMobの初期化
 
   // 縦画面（Portrait）のみを許可
@@ -32,7 +43,13 @@ class MyApp extends StatelessWidget {
         brightness: Brightness.dark,  // ダークモードのテーマ
       ),
       themeMode: brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light,  // システム設定に合わせてテーマを切り替え
-      home: const MenuScreen(),  // 最初にメニュー画面を表示
+      initialRoute: '/',  // 初期画面をメニュー画面に設定
+      routes: {
+        '/': (context) => const MenuScreen(),
+        '/selection': (context) => const SelectionScreen(),  // 選択画面
+        '/matching': (context) => const MatchingScreen(),    // マッチング画面
+        '/online-game': (context) => const OnlineGameScreen(),  // オンラインゲーム画面
+      },
     );
   }
 }

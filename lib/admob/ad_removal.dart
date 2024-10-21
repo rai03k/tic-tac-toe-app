@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';  // url_launcher をインポ�
 import 'package:google_mobile_ads/google_mobile_ads.dart';  // 動画広告をインポート
 import 'dart:io';  // Platformを使用するために追加
 import 'package:in_app_review/in_app_review.dart';  // in_app_review をインポート
+import '../data/language.dart';  // LanguageData クラスをインポート
 
 class AdRemovalScreen extends StatefulWidget {
   const AdRemovalScreen({super.key});
@@ -25,96 +26,7 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
   BannerAd? _bottomBannerAd;
   bool _isTopBannerAdLoaded = false;
   bool _isBottomBannerAdLoaded = false;
-
-  // 言語選択関連の変数
   String _selectedLanguage = 'en'; // 初期言語
-  final List<Map<String, String>> _languages = [
-    {'code': 'en', 'label': 'English'},
-    {'code': 'es', 'label': 'Español'},
-    {'code': 'zh_CN', 'label': '简体中文'},
-    {'code': 'zh_TW', 'label': '繁體中文'},
-    {'code': 'ja', 'label': '日本語'},
-    {'code': 'fr', 'label': 'Français'},
-    {'code': 'de', 'label': 'Deutsch'},
-    {'code': 'pt', 'label': 'Português'},
-    {'code': 'ko', 'label': '한국어'}
-  ];
-
-  // 翻訳マップ
-  final Map<String, Map<String, String>> _translations = {
-    'en': {
-      'progressDescription': 'Progress to Remove Ads',
-      'reviewButton': 'Write a Review',
-      'watchVideoButton': 'Watch Video to Remove Ads',
-      'stepsCompleted': 'steps completed',
-      'orText': 'or',
-      'adsRemovedMessage': 'Ads have been removed!',
-    },
-    'ja': {
-      'progressDescription': '広告を削除するための進捗',
-      'reviewButton': 'レビューを書く',
-      'watchVideoButton': '動画を見て広告を削除',
-      'stepsCompleted': 'ステップが完了しました',
-      'orText': 'または',
-      'adsRemovedMessage': '広告が削除されました！',
-    },
-    'es': {
-      'progressDescription': 'Progreso para eliminar anuncios',
-      'reviewButton': 'Escribir una reseña',
-      'watchVideoButton': 'Ver video para eliminar anuncios',
-      'stepsCompleted': 'pasos completados',
-      'orText': 'o',
-      'adsRemovedMessage': '¡Los anuncios han sido eliminados!',
-    },
-    'zh_CN': {
-      'progressDescription': '删除广告的进度',
-      'reviewButton': '写评论',
-      'watchVideoButton': '观看视频以删除广告',
-      'stepsCompleted': '步已完成',
-      'orText': '或',
-      'adsRemovedMessage': '广告已删除！',
-    },
-    'zh_TW': {
-      'progressDescription': '刪除廣告的進度',
-      'reviewButton': '寫評論',
-      'watchVideoButton': '觀看視頻以刪除廣告',
-      'stepsCompleted': '步已完成',
-      'orText': '或',
-      'adsRemovedMessage': '廣告已刪除！',
-    },
-    'fr': {
-      'progressDescription': 'Progrès pour supprimer les publicités',
-      'reviewButton': 'Écrire une critique',
-      'watchVideoButton': 'Regarder la vidéo pour supprimer les publicités',
-      'stepsCompleted': 'étapes terminées',
-      'orText': 'ou',
-      'adsRemovedMessage': 'Les annonces ont été supprimées!',
-    },
-    'de': {
-      'progressDescription': 'Fortschritt zum Entfernen von Anzeigen',
-      'reviewButton': 'Eine Bewertung schreiben',
-      'watchVideoButton': 'Video ansehen, um Anzeigen zu entfernen',
-      'stepsCompleted': 'Schritte abgeschlossen',
-      'orText': 'oder',
-      'adsRemovedMessage': 'Die Anzeigen wurden entfernt!',
-    },
-    'pt': {
-      'progressDescription': 'Progresso para remover anúncios',
-      'reviewButton': 'Escrever uma avaliação',
-      'watchVideoButton': 'Assista ao vídeo para remover anúncios',
-      'stepsCompleted': 'etapas concluídas',
-      'orText': 'ou',
-      'adsRemovedMessage': 'Os anúncios foram removidos!',
-    },
-    'ko': {
-      'progressDescription': '광고 제거 진행 상황',
-      'reviewButton': '리뷰 작성',
-      'watchVideoButton': '광고 제거를 위한 비디오 보기',
-      'stepsCompleted': '단계 완료',
-      'orText': '또는',
-      'adsRemovedMessage': '광고가 제거되었습니다!',
-    }
-  };
 
   @override
   void initState() {
@@ -142,49 +54,16 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
     });
   }
 
-  // 言語設定をSharedPreferencesに保存する
-  Future<void> _saveLanguage(String languageCode) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('selectedLanguage', languageCode);
-    setState(() {
-      _selectedLanguage = languageCode;
-    });
-  }
-
-  // 言語選択用のドロップダウンメニュー
-  Widget _buildLanguageDropdown() {
-    return DropdownButton<String>(
-      value: _selectedLanguage,
-      onChanged: (String? newLanguage) {
-        if (newLanguage != null) {
-          _saveLanguage(newLanguage);
-        }
-      },
-      items: _languages.map<DropdownMenuItem<String>>((Map<String, String> language) {
-        return DropdownMenuItem<String>(
-          value: language['code'],
-          child: Text(language['label']!),
-        );
-      }).toList(),
-    );
-  }
-
-  // 選択された言語に基づいて翻訳を取得する関数
+  // 翻訳を取得する関数
   String _getTranslation(String key) {
-    return _translations[_selectedLanguage]?[key] ?? '';
+    return LanguageData.getTranslation(_selectedLanguage, key);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Remove Ads'),  // AppBarのタイトル
-        actions: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: _buildLanguageDropdown(),  // 言語選択ドロップダウンを右上に表示
-          ),
-        ],
+        title: const Text('Remove Ads'),
       ),
       body: Stack(
         children: [
@@ -224,7 +103,6 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
                           ],
                         ),
                       ),
-
                       const SizedBox(height: 40),
 
                       // 進捗が1点目または2点目の場合、レビューか動画再生が可能
@@ -298,9 +176,7 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
                             style: const TextStyle(fontSize: 18),
                           ),
                         ),
-
                       const SizedBox(height: 40),
-
                       if (_progress == 3)
                         Text(
                           _getTranslation('adsRemovedMessage'),  // 広告削除完了メッセージ
@@ -339,7 +215,6 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
     );
   }
 
-  // 動画広告の表示、進捗更新などの関数はここに追加
 
   // 動画広告の読み込み
   void _loadRewardedAd() {
@@ -456,7 +331,7 @@ class _AdRemovalScreenState extends State<AdRemovalScreen>
       await prefs.setBool('adsRemoved', true);  // 広告が削除されたことを保存
     }
   }
-  
+
 
   // SharedPreferencesから進捗状況を読み込む
   Future<void> _loadProgress() async {
