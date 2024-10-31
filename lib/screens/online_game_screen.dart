@@ -1,12 +1,14 @@
-import 'dart:async'; // StreamSubscriptionのために必要
-import 'dart:math'; // ランダム決定に使用
+// lib/screens/online_game_screen.dart
+
+import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Firebase Firestore
-import 'package:connectivity_plus/connectivity_plus.dart'; // オフライン検知
-import '../models/game_board.dart'; // ゲームロジックをインポート
-import '../widgets/game_board_widget.dart'; // ゲームボード描画用のウィジェット
-import '../admob/banner_ad_widget.dart'; // バナー広告ウィジェットをインポート
-import '../services/online_game_service.dart'; // サービスクラスのインポート
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import '../models/game_board.dart';
+import '../widgets/game_board_widget.dart';
+import '../admob/banner_ad_widget.dart';
+import '../services/online_game_service.dart';
 
 class OnlineGameScreen extends StatefulWidget {
   const OnlineGameScreen({super.key});
@@ -16,191 +18,487 @@ class OnlineGameScreen extends StatefulWidget {
 }
 
 class _OnlineGameScreenState extends State<OnlineGameScreen> {
+  // 基本的なゲーム状態
   final GameBoard _gameBoard = GameBoard();
   bool _isMyTurn = false;
   bool _isPlayerInitialized = false;
   late String _playerMark;
   bool _isAiMode = false;
-  String opponentName = '相手'; // 初期値を「相手」に設定
-  String myName = 'あなた'; // 初期値を「あなた」に設定
+  String opponentName = '相手';
+  String myName = 'あなた';
+  String? _initError; // 初期化エラーを保持する新しいフィールド
 
-  // Firestore用のサービスインスタンスを追加
+  // オンラインゲーム関連
   late OnlineGameService _onlineGameService;
   StreamSubscription<DocumentSnapshot>? _gameSubscription;
-  late String gameId; // 一意のゲームID
+  late String gameId;
+
+  // 接続管理
+  Timer? _connectionTimer;
+  Timer? _backupTimer;
+  Timer? _inactivityTimer;
+  bool _isReconnecting = false;
+  int _reconnectAttempts = 0;
+  String? _errorMessage;
+  static const int _maxReconnectAttempts = 3;
+  static const int _inactivityTimeout = 30;
+  StreamSubscription? _connectivitySubscription;
+  bool _initialized = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeGame();
+    // _initializeGame()を削除
+    _startConnectionMonitoring();
+    _startInactivityTimer();
+    _monitorConnectivity();
   }
 
   @override
-  void dispose() {
-    // _gameSubscriptionが初期化されている場合のみキャンセル
-    _gameSubscription?.cancel();
-    super.dispose();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initialized = true;
+      _initializeGame();
+    }
   }
 
+  void _monitorConnectivity() {
+    _connectivitySubscription = Connectivity()
+        .onConnectivityChanged
+        .map((event) => event as ConnectivityResult) // 型を明示的に変換
+        .listen((result) async {
+      if (result == ConnectivityResult.none) {
+        await _handleDisconnection();
+      } else if (_isReconnecting) {
+        await _handleReconnection();
+      }
+    });
+  }
 
+// _checkConnection メソッドを追加
+  Future<void> _checkConnection() async {
+    try {
+      final result = await Connectivity().checkConnectivity();
+      if (result == ConnectivityResult.none) {
+        await _handleDisconnection();
+      } else if (_isReconnecting) {
+        await _handleReconnection();
+      }
+    } catch (e) {
+      print('Connection check error: $e');
+      _handleError('接続確認中にエラーが発生しました');
+    }
+  }
+
+// _startConnectionMonitoring メソッドを修正
+  void _startConnectionMonitoring() {
+    _connectionTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      await _checkConnection();
+    });
+  }
+
+  void _startInactivityTimer() {
+    _inactivityTimer?.cancel();
+    _inactivityTimer =
+        Timer(Duration(seconds: _inactivityTimeout), _handleInactivity);
+  }
 
   Future<void> _initializeGame() async {
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    try {
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
-    if (args == null || args['gameId'] == null || args['gameId'].isEmpty) {
-      print("Error: gameId is empty or null");
-      return;
+      if (args == null) {
+        throw Exception('ゲーム情報が不正です');
+      }
+
+      _isAiMode = args['isAiMode'] ?? false;
+      opponentName = args['opponentName'] ?? '相手';
+      gameId = _isAiMode ? 'ai-game' : args['gameId']!;
+
+      if (_isAiMode) {
+        final random = Random();
+        final isPlayerFirst = random.nextBool(); // ランダムにtrueまたはfalseを生成
+
+        setState(() {
+          _playerMark = isPlayerFirst ? 'X' : 'O'; // trueならX（先行）、falseならO（後攻）
+          _isMyTurn = isPlayerFirst; // 先行なら自分のターン、後攻ならAIのターン
+          _isPlayerInitialized = true;
+          _gameBoard.board = List.filled(9, ' ');
+        });
+// 後攻の場合、AIの手を実行
+        if (!isPlayerFirst) {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            _handleAITurn();
+          });
+        }
+      } else {
+        await _checkNetworkStatus();
+        if (!_isPlayerInitialized) {
+          await _initializePlayer();
+        }
+        _startBackupTimer();
+      }
+    } catch (e) {
+      _handleError('ゲームの初期化に失敗しました: $e');
     }
+  }
 
-    gameId = args['gameId'];
-    _isAiMode = args['isAiMode'] ?? false;
-    opponentName = args['opponentName'] ?? '相手';
+  Future<void> _initializePlayer() async {
+    try {
+      if (_isAiMode) {
+        setState(() {
+          _playerMark = 'X';
+          _isMyTurn = true;
+          _isPlayerInitialized = true;
+          _gameBoard.board = List.filled(9, ' ');
+        });
+        return;
+      }
 
-    // ネットワーク状態をチェックしてからプレイヤーを初期化
-    await _checkNetworkStatus();
-    if (!_isPlayerInitialized) {
-      await _initializePlayer();
+      final gameDoc = await FirebaseFirestore.instance
+          .collection('matches')
+          .doc(gameId)
+          .get();
+
+      if (!gameDoc.exists) {
+        throw Exception('ゲームが見つかりません');
+      }
+
+      final data = gameDoc.data() as Map<String, dynamic>?;
+      if (data == null) {
+        throw Exception('ゲームデータが不正です');
+      }
+
+      setState(() {
+        _playerMark = data['playerX'] == null ? 'X' : 'O';
+        _isMyTurn = _playerMark == data['turn'];
+        _isPlayerInitialized = true;
+        _gameBoard.board =
+            List<String>.from(data['board'] ?? List.filled(9, ' '));
+      });
+    } catch (e) {
+      _handleError('プレイヤーの初期化に失敗しました: $e');
     }
   }
 
   Future<void> _checkNetworkStatus() async {
-    var connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult == ConnectivityResult.none) {
-      // ネットワーク接続がない場合、AIモードに切り替え
-      _isAiMode = true;
-      await _initializePlayer(); // オフラインでもプレイヤーを初期化
-    } else {
-      // オンラインの場合、Firestoreのゲームサービスを初期化
-      _isAiMode = false;
-      _onlineGameService = OnlineGameService(gameId);
+    try {
+      var connectivityResult = await Connectivity().checkConnectivity();
+      if (connectivityResult == ConnectivityResult.none) {
+        if (!_isAiMode) {
+          await _handleDisconnection();
+        }
+      } else {
+        if (!_isAiMode) {
+          // AIモードでない場合のみオンラインサービスを初期化
+          _onlineGameService = OnlineGameService(gameId);
+          await _setupGameSubscription();
+        }
+      }
+    } catch (e) {
+      _handleError('ネットワーク確認に失敗しました: $e');
+    }
+  }
 
-      await _initializePlayer();
+  Future<void> _setupGameSubscription() async {
+    _gameSubscription?.cancel();
+    _gameSubscription = _onlineGameService.gameStream.listen(
+      _handleGameUpdate,
+      onError: _handleConnectionError,
+    );
+  }
 
-      // Firestoreのゲームデータを監視
-      _gameSubscription = _onlineGameService.gameStream.listen((snapshot) {
-        if (snapshot.exists) {
-          final data = snapshot.data() as Map<String, dynamic>?;
+  void _handleGameUpdate(DocumentSnapshot snapshot) {
+    if (!snapshot.exists) return;
 
-          if (data == null) {
-            print("Error: No data found in Firestore snapshot");
-            return;
-          }
+    final data = snapshot.data() as Map<String, dynamic>?;
+    if (data == null) return;
 
-          // データの取得後、UIスレッドでsetStateを呼び出す
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            setState(() {
-              _gameBoard.board = List<String>.from(data['board']);
-              _isMyTurn = data['turn'] == _playerMark;
+    // 相手の切断を検知
+    if (data['connectionStatus'] != null) {
+      final opponentMark = _playerMark == 'X' ? 'O' : 'X';
+      if (data['connectionStatus'][opponentMark] == 'disconnected') {
+        _handleOpponentDisconnection();
+        return;
+      }
+    }
 
-              // 勝者がいる場合
-              _gameBoard.winner = data['winner'] ?? '';
-            });
-          });
+    setState(() {
+      _gameBoard.board = List<String>.from(data['board']);
+      _isMyTurn = data['turn'] == _playerMark;
+      _gameBoard.winner = data['winner'] ?? '';
+
+      if (data['winningLine'] != null) {
+        _gameBoard.winningBlocks = List<int>.from(data['winningLine']);
+      }
+    });
+
+    _startInactivityTimer();
+  }
+
+  void _handleConnectionError(dynamic error) {
+    print('Connection error: $error');
+    if (!_isReconnecting) {
+      _handleDisconnection();
+    }
+  }
+
+  Future<void> _handleDisconnection() async {
+    if (_isAiMode) return;
+
+    setState(() {
+      _isReconnecting = true;
+      _errorMessage = 'サーバーとの接続が切断されました';
+    });
+
+    if (mounted) {
+      _showReconnectingDialog();
+    }
+
+    try {
+      await _onlineGameService.updateConnectionStatus(false);
+    } catch (e) {
+      print('Error updating connection status: $e');
+    }
+  }
+
+  Future<void> _handleReconnection() async {
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      _showConnectionFailedDialog();
+      return;
+    }
+
+    _reconnectAttempts++;
+    try {
+      await _checkNetworkStatus();
+      setState(() {
+        _isReconnecting = false;
+        _errorMessage = null;
+      });
+      Navigator.of(context).pop(); // リコネクト中ダイアログを閉じる
+      _reconnectAttempts = 0;
+    } catch (e) {
+      print('Reconnection attempt failed: $e');
+      if (_reconnectAttempts >= _maxReconnectAttempts) {
+        _showConnectionFailedDialog();
+      }
+    }
+  }
+
+  void _handleInactivity() {
+    if (!mounted || _isAiMode) return;
+    _onlineGameService.checkTimeout();
+  }
+
+  void _handleOpponentDisconnection() {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('対戦相手が切断しました'),
+        content: const Text('対戦を終了します。'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pop();
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showReconnectingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        title: Text('再接続中'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('接続の復旧を試みています...'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showConnectionFailedDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('接続エラー'),
+        content: const Text('接続の復旧に失敗しました。\nゲームを終了します。'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // エラーハンドリングメソッドを修正
+  void _handleError(String message) {
+    setState(() {
+      _errorMessage = message;
+      _initError = message; // 初期化エラーを保存
+    });
+
+    // initState中でない場合のみSnackBarを表示
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.inactive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
         }
       });
     }
   }
 
-  Future<void> _initializePlayer() async {
-    final gameDoc = await FirebaseFirestore.instance.collection('matches').doc(gameId).get();
-
-    if (gameDoc.exists) {
-      final data = gameDoc.data() as Map<String, dynamic>?;
-
-      if (data == null) {
-        print("Error: No data found in gameDoc");
-        return;
-      }
-
-      _playerMark = data['playerX'] == null ? 'X' : 'O';
-      _isMyTurn = _playerMark == data['turn'];
-    } else {
-      _playerMark = 'X';
-      _isMyTurn = true;
-      await _onlineGameService.createGame(List.filled(9, ' '), 'X');
-    }
-
-    // プレイヤーの初期化が完了したことをセット
-    setState(() {
-      _isPlayerInitialized = true;
-    });
-
-    if (_isAiMode && !_isMyTurn) {
-      await _handleAITurn();
-    }
-  }
-
-
   Future<void> _handleTap(int index) async {
-    if (!_isMyTurn || _gameBoard.board[index] != ' ' || _gameBoard.winner.isNotEmpty) return;
+    if (!_isMyTurn ||
+        _gameBoard.board[index] != ' ' ||
+        _gameBoard.winner.isNotEmpty) return;
 
-    // プレイヤーのターン処理
-    bool playerMove = await _gameBoard.handleTap(index);
+    if (_isAiMode) {
+      bool playerMove = await _gameBoard.handleTap(index);
+      if (playerMove) {
+        setState(() {
+          _isMyTurn = false;
+        });
 
-    if (playerMove) {
-      setState(() {
-        _isMyTurn = false; // プレイヤーのターンが終了
-      });
-
-      // オフラインモードでAIのターン処理を行う
-      if (_isAiMode) {
         Future.delayed(const Duration(milliseconds: 500), () async {
           int bestMove = _gameBoard.findBestMove();
           if (bestMove != -1) {
             bool aiMoveMade = await _gameBoard.handleTap(bestMove);
             if (aiMoveMade) {
               setState(() {
-                _isMyTurn = true; // 再びプレイヤーのターン
+                _isMyTurn = true;
               });
             }
           }
         });
-      } else {
-        // オンラインモードのときは、Firestoreに手を記録
+      }
+    } else {
+      try {
         await _onlineGameService.makeMove(index, _playerMark);
+        _startInactivityTimer();
+      } catch (e) {
+        _handleError('手の実行に失敗しました: $e');
       }
     }
   }
 
   Future<void> _handleAITurn() async {
     await Future.delayed(const Duration(milliseconds: 500));
-
-    // AIの最適な手を見つける
     int bestMove = _gameBoard.findBestMove();
     if (bestMove != -1) {
-      // AIの手を更新し、ゲームボードをリフレッシュ
       bool moveMade = await _gameBoard.handleTap(bestMove);
       if (moveMade) {
         setState(() {
-          _isMyTurn = true; // 次のターンをプレイヤーに切り替え
+          _isMyTurn = true;
         });
       }
     }
   }
 
+  void _startBackupTimer() {
+    if (_isAiMode) return;
+
+    _backupTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _onlineGameService.backupGameState();
+    });
+  }
+
+  @override
+  void dispose() {
+    _gameSubscription?.cancel();
+    _connectionTimer?.cancel();
+    _backupTimer?.cancel();
+    _inactivityTimer?.cancel();
+    _connectivitySubscription?.cancel();
+
+    // オンラインモードの場合、切断状態を更新
+    if (!_isAiMode) {
+      _onlineGameService.updateConnectionStatus(false).catchError((e) {
+        print('Error updating connection status on dispose: $e');
+      });
+    }
+
+    super.dispose();
+  }
+
+  // 以下のUIビルド関連のメソッドは変更なし
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height; // 画面の高さを取得
-    final screenWidth = MediaQuery.of(context).size.width; // 画面の幅を取得
+    // 初期化エラーがある場合はエラー画面を表示
+    if (_initError != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'エラーが発生しました',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 16),
+              Text(_initError!),
+              SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text('戻る'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
-    // 横幅が1000px以上の場合、goldenRatioを10.6に設定
+    // 既存のbuild処理...
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
     final double goldenRatio = screenHeight >= 1000 ? 10.6 : 5.6;
-    bool isDarkMode = Theme.of(context).brightness == Brightness.dark; // ダークモードかどうか判定
-
-    // ヘッダー、ゲームボード、リセットボタンの高さを調整
+    bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final headerHeight = screenHeight / (goldenRatio + 1);
-
-    // 再対戦ボタンの位置を条件に応じて調整
-    double resetButtonBottom = 80; // デフォルトは80
-    if (screenHeight >= 1000 && screenWidth <= 810) {
-      resetButtonBottom = 30;  // 画面が縦長の場合
-    }
-    if (screenHeight <= 750) {
-      resetButtonBottom = 5;   // 画面が小さい場合
-    }
+    double resetButtonBottom = screenHeight >= 1000 && screenWidth <= 810
+        ? 30
+        : screenHeight <= 750
+            ? 5
+            : 80;
 
     if (!_isPlayerInitialized) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (_isReconnecting) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 20),
+              Text(_errorMessage ?? '再接続中...'),
+            ],
+          ),
+        ),
+      );
     }
 
     return Scaffold(
@@ -213,18 +511,19 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
               Expanded(
                 child: Container(
                   child: GameBoardWidget(
-                    board: _gameBoard.board,  // ゲームボードをウィジェットに渡す
-                    winningBlocks: _gameBoard.winningBlocks, // 勝利したブロックを渡す
-                    fadedIndex: _gameBoard.fadedIndex, // フェードさせるマークのインデックスを渡す
-                    winner: _gameBoard.winner,  // 勝者を渡す
-                    onTap: _handleTap,  // タップ処理の関数を渡す
+                    board: _gameBoard.board,
+                    winningBlocks: _gameBoard.winningBlocks,
+                    fadedIndex: _gameBoard.fadedIndex,
+                    winner: _gameBoard.winner,
+                    onTap: _handleTap,
                   ),
                 ),
               ),
               _buildRematchButton(),
             ],
           ),
-          const Positioned(bottom: 0, left: 0, right: 0, child: BannerAdWidget()),
+          const Positioned(
+              bottom: 0, left: 0, right: 0, child: BannerAdWidget()),
           Positioned(
             top: 40,
             left: 10,
@@ -251,7 +550,11 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
       child: Text(
         _gameBoard.winner.isEmpty
             ? (_isMyTurn ? 'あなたのターン' : '相手のターン')
-            : (_gameBoard.winner == _playerMark ? '勝ちました！' : '負けました'),
+            : (_gameBoard.winner == ' '
+            ? '引き分けです'
+            : _gameBoard.winner == _playerMark
+            ? 'あなたの勝ちです！'
+            : 'あなたの負けです'),  // 修正
         style: TextStyle(
           color: isDarkMode ? Colors.black : Colors.white,
           fontSize: 24,
@@ -270,8 +573,10 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
-          if (isPlayerFirst) _buildPlayerIcon(isDarkMode, myName, Colors.redAccent),
-          if (!isPlayerFirst) _buildPlayerIcon(isDarkMode, opponentName, Colors.blueAccent),
+          if (isPlayerFirst)
+            _buildPlayerIcon(isDarkMode, myName, Colors.redAccent),
+          if (!isPlayerFirst)
+            _buildPlayerIcon(isDarkMode, opponentName, Colors.blueAccent),
           const SizedBox(width: 40),
           Text(
             'VS',
@@ -282,8 +587,10 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
             ),
           ),
           const SizedBox(width: 40),
-          if (isPlayerFirst) _buildPlayerIcon(isDarkMode, opponentName, Colors.blueAccent),
-          if (!isPlayerFirst) _buildPlayerIcon(isDarkMode, myName, Colors.redAccent),
+          if (isPlayerFirst)
+            _buildPlayerIcon(isDarkMode, opponentName, Colors.blueAccent),
+          if (!isPlayerFirst)
+            _buildPlayerIcon(isDarkMode, myName, Colors.redAccent),
         ],
       ),
     );
@@ -315,7 +622,8 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
       child: ElevatedButton(
         onPressed: _gameBoard.winner.isEmpty ? null : _resetBoard,
         style: ElevatedButton.styleFrom(
-          backgroundColor: _gameBoard.winner.isEmpty ? Colors.grey : Colors.green,
+          backgroundColor:
+              _gameBoard.winner.isEmpty ? Colors.grey : Colors.green,
           padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
@@ -331,7 +639,8 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
 
   Widget _buildBackButton(bool isDarkMode) {
     return IconButton(
-      icon: Icon(Icons.arrow_back, size: 30, color: isDarkMode ? Colors.black : Colors.white),
+      icon: Icon(Icons.arrow_back,
+          size: 30, color: isDarkMode ? Colors.black : Colors.white),
       onPressed: () => Navigator.pop(context),
     );
   }

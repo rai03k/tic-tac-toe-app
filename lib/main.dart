@@ -14,7 +14,7 @@ import 'package:flutter/foundation.dart';  // kReleaseMode用
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();  // バインディングの初期化
   await Firebase.initializeApp(
-    //options: DefaultFirebaseOptions.currentPlatform,  // 各プラットフォームの設定を使用
+    options: DefaultFirebaseOptions.currentPlatform,  // 各プラットフォームの設定を使用
   );
   MobileAds.instance.initialize();  // AdMobの初期化
 
