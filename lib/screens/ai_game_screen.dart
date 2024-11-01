@@ -70,6 +70,15 @@ class _AIGameScreenState extends State<AIGameScreen> {
       resetButtonBottom = 5;   // 画面が小さい場合
     }
 
+    bool isTablet = screenWidth >= 600 && screenWidth < 1200;
+    double gameBoardSize = screenWidth * 1.0;
+
+    if (screenHeight <= 750 || isTablet) {
+      gameBoardSize = screenWidth * 0.9;
+    }
+
+    bool isPortraitAndNarrow = screenHeight <= 750;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -141,7 +150,6 @@ class _AIGameScreenState extends State<AIGameScreen> {
                     const SizedBox(width: 40), // スペース
                     Column(
                       children: [
-                        // AIのアイコン
                         CircleAvatar(
                           backgroundColor: Colors.blueAccent,
                           radius: 40,
