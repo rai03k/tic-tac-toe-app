@@ -40,7 +40,7 @@ class _MenuScreenState extends State<MenuScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,  // ボタンと広告の間にスペースを確保
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Expanded(
             child: Container(
@@ -127,11 +127,15 @@ class _MenuScreenState extends State<MenuScreen> {
               ),
             ),
           ),
-          // バナー広告ウィジェットの再利用。広告が削除されている場合は表示しない
-          if (!_adsRemoved)
-            const BannerAdWidget(),
         ],
       ),
+          bottomNavigationBar: _adsRemoved
+              ? null
+              : Container(
+            padding: const EdgeInsets.symmetric(vertical: 10),  // 上下に余白を追加
+            color: Colors.white,  // 広告背景色（例として白に設定）
+            child: const BannerAdWidget(),
+          ),
     );
   }
 

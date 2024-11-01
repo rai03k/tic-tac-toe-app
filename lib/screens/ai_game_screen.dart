@@ -97,14 +97,13 @@ class _AIGameScreenState extends State<AIGameScreen> {
                       ? 'AI Wins!' // Player 1が勝者ならAIが勝った場合のテキスト
                       : 'Player 1 Wins!'), // AIが勝者ならPlayer 1が勝った場合のテキスト
                   style: TextStyle(
-                    color: isDarkMode ? Colors.white : Colors.white,
+                    color: isDarkMode ? Colors.black : Colors.white,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.center,
                 ),
               ),
-
 
               // プレイヤー表示部分
               Container(
@@ -115,23 +114,29 @@ class _AIGameScreenState extends State<AIGameScreen> {
                   children: <Widget>[
                     Column(
                       children: [
-                        // プレイヤー1のアイコン
                         CircleAvatar(
                           backgroundColor: Colors.redAccent,
                           radius: 40,
-                          child: Icon(Icons.person, color: isDarkMode ? Colors.white : Colors.white, size: 72),
+                          child: Icon(Icons.person,
+                              color: isDarkMode ? Colors.white : Colors.white,
+                              size: 72),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Player 1',
-                          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black, fontSize: 20),
+                          style: TextStyle(
+                              color: isDarkMode ? Colors.white : Colors.black,
+                              fontSize: 20),
                         ),
                       ],
                     ),
                     const SizedBox(width: 40), // スペース
                     Text(
                       'VS',
-                      style: TextStyle(color: isDarkMode ? Colors.white : Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          color: isDarkMode ? Colors.white : Colors.black,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(width: 40), // スペース
                     Column(
@@ -140,7 +145,9 @@ class _AIGameScreenState extends State<AIGameScreen> {
                         CircleAvatar(
                           backgroundColor: Colors.blueAccent,
                           radius: 40,
-                          child: Icon(Icons.smart_toy, color: isDarkMode ? Colors.white : Colors.white, size: 72),
+                          child: Icon(Icons.person,
+                              color: isDarkMode ? Colors.white : Colors.white,
+                              size: 72),
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -154,52 +161,55 @@ class _AIGameScreenState extends State<AIGameScreen> {
               ),
 
               // ゲームボード部分
-              Expanded(
-                child: Container(
-                  width: screenWidth, // 画面の幅を取得
-                  color: isDarkMode ? Colors.grey[800] : Colors.grey[300], // ダークモードに応じた背景色
-                  child: GameBoardWidget(
-                    board: _gameBoard.board,  // ゲームボードをウィジェットに渡す
-                    winningBlocks: _gameBoard.winningBlocks, // 勝利したブロックを渡す
-                    fadedIndex: _gameBoard.fadedIndex, // フェードさせるマークのインデックスを渡す
-                    winner: _gameBoard.winner,  // 勝者を渡す
-                    onTap: _handleTap,  // タップ処理の関数を渡す
+              Container(
+                padding: EdgeInsets.only(
+                  top: isPortraitAndNarrow ? 0 : 20,
+                  bottom: 5,
+                ),
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                width: gameBoardSize,
+                height: gameBoardSize,
+                child: GameBoardWidget(
+                  board: _gameBoard.board,
+                  winningBlocks: _gameBoard.winningBlocks,
+                  fadedIndex: _gameBoard.fadedIndex,
+                  winner: _gameBoard.winner,
+                  onTap: _handleTap,
+                ),
+              ),
+
+              // リセットボタン
+              Align(
+                alignment: Alignment.center,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: isTablet ? 10 : 0),
+                  // タブレットのみ下に10px追加
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 40, vertical: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    onPressed: _resetBoard, // リセットボタンが押された時にボードをリセット
+                    child: Text(
+                      'RESET',
+                      style: TextStyle(
+                          color: isDarkMode ? Colors.black : Colors.white,
+                          fontSize: 18),
+                    ),
                   ),
                 ),
               ),
+
+              // 広告バナー
+              if (screenHeight > 750) const BannerAdWidget(),
+
+              const Spacer(),
             ],
-          ),
-
-          // リセットボタン
-          Positioned(
-            bottom: resetButtonBottom,  // 条件に基づいてbottomの値を設定
-            left: 0,
-            right: 0,
-            child: Align(
-              alignment: Alignment.center,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.amber,
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                ),
-                onPressed: _resetBoard, // リセットボタンを押した時にボードをリセット
-                child: Text(
-                  'RESET',
-                  style: TextStyle(color: isDarkMode ? Colors.black : Colors.white, fontSize: 18),
-                ),
-              ),
-            ),
-          ),
-
-          // バナー広告
-          const Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: BannerAdWidget(),  // バナー広告を表示
           ),
 
           // 戻るボタン
@@ -207,10 +217,12 @@ class _AIGameScreenState extends State<AIGameScreen> {
             top: 40,
             left: 10,
             child: IconButton(
-              icon: Icon(Icons.arrow_back, size: 30, color: isDarkMode ? Colors.black : Colors.white),
-              onPressed: () {
-                Navigator.pop(context);  // 画面を戻す
-              },
+              icon: Icon(
+                  Icons.arrow_back,
+                  size: 30,
+                  color: isDarkMode ? Colors.black : Colors.white
+              ),
+              onPressed: () => Navigator.pop(context),
             ),
           ),
         ],

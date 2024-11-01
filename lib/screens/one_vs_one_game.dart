@@ -51,6 +51,15 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
       resetButtonBottom = 5;   // 画面が小さい場合
     }
 
+    bool isTablet = screenWidth >= 600 && screenWidth < 1200;
+    double gameBoardSize = screenWidth * 1.0;
+
+    if (screenHeight <= 750 || isTablet) {
+      gameBoardSize = screenWidth * 0.9;
+    }
+
+    bool isPortraitAndNarrow = screenHeight <= 750;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -133,52 +142,51 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
               ),
 
               // ゲームボード部分
-              Expanded(
-                child: Container(
-                  width: screenWidth,  // 画面の幅を取得
-                  color: isDarkMode ? Colors.grey[800] : Colors.grey[300],  // ダークモードに応じた背景色
-                  child: GameBoardWidget(
-                    board: _gameBoard.board,  // ゲームボードの状態をウィジェットに渡す
-                    winningBlocks: _gameBoard.winningBlocks,  // 勝利ブロックを渡す
-                    fadedIndex: _gameBoard.fadedIndex,  // フェードさせるインデックスを渡す
-                    winner: _gameBoard.winner,  // 勝者を渡す
-                    onTap: _handleTap,  // タップ処理を渡す
+              Container(
+                padding: EdgeInsets.only(
+                  top: isPortraitAndNarrow ? 0 : 20,
+                  bottom: 5,
+                ),
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                width: gameBoardSize,
+                height: gameBoardSize,
+                child: GameBoardWidget(
+                  board: _gameBoard.board,
+                  winningBlocks: _gameBoard.winningBlocks,
+                  fadedIndex: _gameBoard.fadedIndex,
+                  winner: _gameBoard.winner,
+                  onTap: _handleTap,
+                ),
+              ),
+
+              // リセットボタン
+              Align(
+                alignment: Alignment.center,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: isTablet ? 10 : 0), // タブレットのみ下に10px追加
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber,
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    onPressed: _resetBoard, // リセットボタンが押された時にボードをリセット
+                    child: Text(
+                      'RESET',
+                      style: TextStyle(color: isDarkMode ? Colors.black : Colors.white, fontSize: 18),
+                    ),
                   ),
                 ),
               ),
+
+              // 広告バナー
+              if (screenHeight > 750) const BannerAdWidget(),
+
+              const Spacer(),
             ],
-          ),
-
-          // リセットボタン
-          Positioned(
-            bottom: resetButtonBottom,  // リセットボタンの位置を設定
-            left: 0,
-            right: 0,
-            child: Align(
-              alignment: Alignment.center,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.amber,
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                ),
-                onPressed: _resetBoard,  // リセットボタンが押された時にボードをリセット
-                child: Text(
-                  'RESET',
-                  style: TextStyle(color: isDarkMode ? Colors.black : Colors.white, fontSize: 18),
-                ),
-              ),
-            ),
-          ),
-
-          // バナー広告
-          const Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: BannerAdWidget(),  // バナー広告を表示
           ),
 
           // 戻るボタン
@@ -186,10 +194,12 @@ class _OneVsOneGameState extends State<OneVsOneGame> {
             top: 40,
             left: 10,
             child: IconButton(
-              icon: Icon(Icons.arrow_back, size: 30, color: isDarkMode ? Colors.black : Colors.white),
-              onPressed: () {
-                Navigator.pop(context);  // 戻るボタンが押された時に画面を戻す
-              },
+              icon: Icon(
+                  Icons.arrow_back,
+                  size: 30,
+                  color: isDarkMode ? Colors.black : Colors.white
+              ),
+              onPressed: () => Navigator.pop(context),
             ),
           ),
         ],
