@@ -27,6 +27,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
   String opponentName = '相手';
   String myName = 'あなた';
   String? _initError; // 初期化エラーを保持する新しいフィールド
+  bool _isOpponentAI = false; // 相手がAIに切り替わったかどうか
 
   // オンラインゲーム関連
   late OnlineGameService _onlineGameService;
@@ -107,7 +108,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
   Future<void> _initializeGame() async {
     try {
       final args =
-          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
       if (args == null) {
         throw Exception('ゲーム情報が不正です');
@@ -176,7 +177,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
         _isMyTurn = _playerMark == data['turn'];
         _isPlayerInitialized = true;
         _gameBoard.board =
-            List<String>.from(data['board'] ?? List.filled(9, ' '));
+        List<String>.from(data['board'] ?? List.filled(9, ' '));
       });
     } catch (e) {
       _handleError('プレイヤーの初期化に失敗しました: $e');
@@ -240,8 +241,8 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
 
   void _handleConnectionError(dynamic error) {
     print('Connection error: $error');
-    if (!_isReconnecting) {
-      _handleDisconnection();
+    if (!_isReconnecting && !_isOpponentAI) {
+      _switchToAIOpponent();
     }
   }
 
@@ -258,7 +259,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
     }
 
     try {
-      await _onlineGameService.updateConnectionStatus(false);
+      await _onlineGameService.updateConnectionStatus(false, _playerMark);
     } catch (e) {
       print('Error updating connection status: $e');
     }
@@ -295,23 +296,42 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
   void _handleOpponentDisconnection() {
     if (!mounted) return;
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('対戦相手が切断しました'),
-        content: const Text('対戦を終了します。'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pop();
-            },
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
+    // AIモードに切り替え
+    _switchToAIOpponent();
+
+    // 相手のターンだった場合、AIの手を実行
+    if (!_isMyTurn) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          int bestMove = _gameBoard.findBestMove();
+          if (bestMove != -1) {
+            setState(() {
+              _gameBoard.board[bestMove] = _playerMark == 'X' ? 'O' : 'X';
+              _isMyTurn = true;
+            });
+            _checkWinner();
+          }
+        }
+      });
+    }
+  }
+
+// AIに切り替えるメソッドを追加
+  void _switchToAIOpponent() {
+    if (mounted) {
+      setState(() {
+        _isOpponentAI = true;
+        opponentName = 'AI対戦相手';
+      });
+
+      // 切り替え通知を表示
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('対戦相手との接続が切れたため、AIと対戦を続行します'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   void _showReconnectingDialog() {
@@ -370,37 +390,129 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
     }
   }
 
+  // online_game_screen.dart の _handleTap メソッドを修正
   Future<void> _handleTap(int index) async {
     if (!_isMyTurn ||
         _gameBoard.board[index] != ' ' ||
-        _gameBoard.winner.isNotEmpty) return;
+        _gameBoard.winner.isNotEmpty) {
+      return;
+    }
 
-    if (_isAiMode) {
-      bool playerMove = await _gameBoard.handleTap(index);
-      if (playerMove) {
+    try {
+      if (_isAiMode || _isOpponentAI) {
+        // AIモードまたは相手がAIの場合
         setState(() {
+          _gameBoard.board[index] = _playerMark;
           _isMyTurn = false;
         });
+        _checkWinner();
 
-        Future.delayed(const Duration(milliseconds: 500), () async {
-          int bestMove = _gameBoard.findBestMove();
-          if (bestMove != -1) {
-            bool aiMoveMade = await _gameBoard.handleTap(bestMove);
-            if (aiMoveMade) {
+        // AIの手を実行
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted && _gameBoard.winner.isEmpty) {
+            int bestMove = _gameBoard.findBestMove();  // 修正：引数を削除
+            if (bestMove != -1) {
               setState(() {
+                _gameBoard.board[bestMove] = _playerMark == 'X' ? 'O' : 'X';
                 _isMyTurn = true;
               });
+              _checkWinner();
             }
           }
         });
+      } else {
+        // オンラインモードの場合
+        setState(() {
+          _gameBoard.board[index] = _playerMark;
+          _isMyTurn = false;
+        });
+        try {
+          await _onlineGameService.makeMove(index, _playerMark);
+        } catch (e) {
+          print('Online move failed, switching to AI mode: $e');
+          _switchToAIOpponent();
+          // エラー後のAIの手を実行
+          if (mounted && _gameBoard.winner.isEmpty) {
+            Future.delayed(const Duration(milliseconds: 500), () {
+              int bestMove = _gameBoard.findBestMove();  // 修正：引数を削除
+              if (bestMove != -1) {
+                setState(() {
+                  _gameBoard.board[bestMove] = _playerMark == 'X' ? 'O' : 'X';
+                  _isMyTurn = true;
+                });
+                _checkWinner();
+              }
+            });
+          }
+        }
       }
-    } else {
-      try {
-        await _onlineGameService.makeMove(index, _playerMark);
-        _startInactivityTimer();
-      } catch (e) {
+    } catch (e) {
+      print('Error in handleTap: $e');
+      if (mounted) {
+        setState(() {
+          _gameBoard.board[index] = ' ';
+          _isMyTurn = true;
+        });
         _handleError('手の実行に失敗しました: $e');
       }
+    }
+  }
+
+// 勝敗確認メソッドを追加
+  void _checkWinner() {
+    // 横のライン
+    for (int i = 0; i < 9; i += 3) {
+      if (_gameBoard.board[i] != ' ' &&
+          _gameBoard.board[i] == _gameBoard.board[i + 1] &&
+          _gameBoard.board[i] == _gameBoard.board[i + 2]) {
+        setState(() {
+          _gameBoard.winner = _gameBoard.board[i];
+          _gameBoard.winningBlocks = [i, i + 1, i + 2];
+        });
+        return;
+      }
+    }
+
+    // 縦のライン
+    for (int i = 0; i < 3; i++) {
+      if (_gameBoard.board[i] != ' ' &&
+          _gameBoard.board[i] == _gameBoard.board[i + 3] &&
+          _gameBoard.board[i] == _gameBoard.board[i + 6]) {
+        setState(() {
+          _gameBoard.winner = _gameBoard.board[i];
+          _gameBoard.winningBlocks = [i, i + 3, i + 6];
+        });
+        return;
+      }
+    }
+
+    // 斜めのライン（左上から右下）
+    if (_gameBoard.board[0] != ' ' &&
+        _gameBoard.board[0] == _gameBoard.board[4] &&
+        _gameBoard.board[0] == _gameBoard.board[8]) {
+      setState(() {
+        _gameBoard.winner = _gameBoard.board[0];
+        _gameBoard.winningBlocks = [0, 4, 8];
+      });
+      return;
+    }
+
+    // 斜めのライン（右上から左下）
+    if (_gameBoard.board[2] != ' ' &&
+        _gameBoard.board[2] == _gameBoard.board[4] &&
+        _gameBoard.board[2] == _gameBoard.board[6]) {
+      setState(() {
+        _gameBoard.winner = _gameBoard.board[2];
+        _gameBoard.winningBlocks = [2, 4, 6];
+      });
+      return;
+    }
+
+    // 引き分けチェック
+    if (!_gameBoard.board.contains(' ')) {
+      setState(() {
+        _gameBoard.winner = ' ';
+      });
     }
   }
 
@@ -435,7 +547,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
 
     // オンラインモードの場合、切断状態を更新
     if (!_isAiMode) {
-      _onlineGameService.updateConnectionStatus(false).catchError((e) {
+      _onlineGameService.updateConnectionStatus(false, _playerMark).catchError((e) {
         print('Error updating connection status on dispose: $e');
       });
     }
@@ -479,8 +591,8 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
     double resetButtonBottom = screenHeight >= 1000 && screenWidth <= 810
         ? 30
         : screenHeight <= 750
-            ? 5
-            : 80;
+        ? 5
+        : 80;
 
     if (!_isPlayerInitialized) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -623,7 +735,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
         onPressed: _gameBoard.winner.isEmpty ? null : _resetBoard,
         style: ElevatedButton.styleFrom(
           backgroundColor:
-              _gameBoard.winner.isEmpty ? Colors.grey : Colors.green,
+          _gameBoard.winner.isEmpty ? Colors.grey : Colors.green,
           padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),

@@ -66,11 +66,13 @@ class OnlineGameService {
           },
           'lastUpdateTime': FieldValue.serverTimestamp(),
           // 手の履歴を保存
-          'moves': FieldValue.arrayUnion([{
-            'index': index,
-            'player': playerMark,
-            'timestamp': FieldValue.serverTimestamp(),
-          }]),
+          'moves': FieldValue.arrayUnion([
+            {
+              'index': index,
+              'player': playerMark,
+              'timestamp': FieldValue.serverTimestamp(),
+            }
+          ]),
         };
 
         // ゲームが終了した場合
@@ -124,11 +126,11 @@ class OnlineGameService {
   }
 
   // 接続状態の更新
-  Future<void> updateConnectionStatus(bool isConnected) async {
+  Future<void> updateConnectionStatus(bool isConnected, String playerMark) async {
     try {
       await _firestore.collection('matches').doc(gameId).update({
         'lastConnectionTime': FieldValue.serverTimestamp(),
-        'connectionStatus': isConnected ? 'connected' : 'disconnected',
+        'connectionStatus.$playerMark': isConnected ? 'connected' : 'disconnected',
       });
     } catch (e) {
       print('Error updating connection status: $e');
