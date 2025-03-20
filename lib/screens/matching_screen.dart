@@ -87,6 +87,8 @@ class _MatchingScreenState extends State<MatchingScreen>
   void _setupConnectivitySubscription() {
     Connectivity().onConnectivityChanged.listen((connectivityResult) {
       _debugLog('Network connectivity status: $connectivityResult');
+      if (!mounted) return; // 重要: mountedチェックを追加
+
       if (connectivityResult == ConnectivityResult.none) {
         // ネットワーク接続がない場合のエラーハンドリング
         if (!_hasShownError) {
@@ -242,11 +244,13 @@ class _MatchingScreenState extends State<MatchingScreen>
     }
   }
 
+// _listenForMatches メソッドの修正（matching_screen.dart）
   void _listenForMatches() {
     _debugLog('Setting up match listener...');
 
     _matchSubscription =
         _firestore.collection('matching').snapshots().listen((snapshot) {
+      if (!mounted) return; // mountedチェックを追加
       if (isMatched) return; // すでにマッチングしていたら処理しない
 
       // 有効なマッチを探す
@@ -310,9 +314,11 @@ class _MatchingScreenState extends State<MatchingScreen>
             // マッチング相手のドキュメントを更新して他の人とマッチングしないようにする
             matchDoc.reference.update(
                 {'status': 'matched', 'matchedWith': _playerId}).then((_) {
+              if (!mounted) return; // mountedチェックを追加
               // 自分のドキュメントも更新
               _matchDocumentRef?.update(
                   {'status': 'matched', 'matchedWith': _opponentId}).then((_) {
+                if (!mounted) return; // mountedチェックを追加
                 // マッチング成立
                 _matchFound();
               });
@@ -326,7 +332,10 @@ class _MatchingScreenState extends State<MatchingScreen>
       }
     }, onError: (error) {
       _debugLog('Error in match listener: $error');
-      _handleMatchingError(error.toString());
+      if (mounted) {
+        // mountedチェックを追加
+        _handleMatchingError(error.toString());
+      }
     });
   }
 
@@ -337,6 +346,7 @@ class _MatchingScreenState extends State<MatchingScreen>
 
   // _matchFound メソッドの修正
   void _matchFound() {
+    if (!mounted) return; // mountedチェックを追加
     if (isMatched) return; // 既にマッチング済みの場合は処理しない
     if (_opponentId == null) return; // 相手がいない場合は処理しない
     if (_opponentId == _playerId) return; // 自分自身とのマッチングを防止

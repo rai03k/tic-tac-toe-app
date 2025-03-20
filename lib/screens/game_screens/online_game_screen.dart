@@ -137,8 +137,13 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
 
       // 先攻・後攻の決定（UUIDの比較で決定）
       _isFirstPlayer = _playerId.compareTo(_opponentId!) < 0;
+
+      // この部分が重要：半角の'X'と'O'を使用する
       _playerMark = _isFirstPlayer ? 'X' : 'O';
       _isMyTurn = _isFirstPlayer; // 先攻なら自分のターン、後攻なら相手のターン
+
+      print(
+          'Player setup: isFirstPlayer=$_isFirstPlayer, playerMark=$_playerMark, isMyTurn=$_isMyTurn');
 
       // ゲーム状態の初期化
       await _gameRef.set({
@@ -152,6 +157,8 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
         'lastUpdated': FieldValue.serverTimestamp(),
       });
 
+      print('Game initialized in Firestore with ID: $gameId');
+
       // ゲーム状態の監視を開始
       _setupGameSubscription();
 
@@ -160,6 +167,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
         _isWaitingForOpponent = !_isMyTurn;
       });
     } catch (e) {
+      print('Error in online game setup: $e');
       _handleError('オンラインゲームのセットアップに失敗しました: $e');
     }
   }
@@ -167,27 +175,65 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
   void _setupGameSubscription() {
     _gameSubscription = _gameRef.snapshots().listen(
       (snapshot) {
-        if (!snapshot.exists) return;
+        if (!snapshot.exists) {
+          print('Game document does not exist');
+          return;
+        }
 
         final data = snapshot.data() as Map<String, dynamic>?;
-        if (data == null) return;
+        if (data == null) {
+          print('Game data is null');
+          return;
+        }
 
-        setState(() {
-          _gameBoard.board = List<String>.from(data['board']);
-          final currentTurn = data['currentTurn'] as String;
-          _isMyTurn = (currentTurn == _playerMark);
-          _isWaitingForOpponent = !_isMyTurn && data['winner'].isEmpty;
+        print(
+            'Received game update: currentTurn=${data['currentTurn']}, board=${data['board']}');
 
-          // 勝敗情報の更新
-          _gameBoard.winner = data['winner'] ?? '';
-          if (data['winningLine'] != null) {
-            _gameBoard.winningBlocks = List<int>.from(data['winningLine']);
+        if (!mounted) return; // マウントされていない場合は処理しない
+
+        // ボード状態を更新する前の状態を記録
+        final List<String> oldBoard = List<String>.from(_gameBoard.board);
+        final List<String> newBoard = List<String>.from(data['board']);
+
+        // 状態に変更があるかどうかをチェック
+        bool boardChanged = false;
+        for (int i = 0; i < 9; i++) {
+          if (oldBoard[i] != newBoard[i]) {
+            boardChanged = true;
+            break;
           }
-        });
+        }
+
+        final String currentTurn = data['currentTurn'] as String;
+        final bool oldIsMyTurn = _isMyTurn;
+        final bool newIsMyTurn = (currentTurn == _playerMark);
+
+        // ターンが変わった、またはボードが変わった場合のみstate更新
+        if (oldIsMyTurn != newIsMyTurn || boardChanged) {
+          setState(() {
+            // ボードの状態更新
+            _gameBoard.board = newBoard;
+
+            // ターン更新
+            _isMyTurn = newIsMyTurn;
+            _isWaitingForOpponent = !_isMyTurn && data['winner'].isEmpty;
+
+            // 勝敗情報の更新
+            _gameBoard.winner = data['winner'] ?? '';
+            if (data['winningLine'] != null) {
+              _gameBoard.winningBlocks = List<int>.from(data['winningLine']);
+            }
+          });
+
+          print(
+              'Updated game state - isMyTurn: $oldIsMyTurn -> $_isMyTurn, boardChanged: $boardChanged');
+        }
       },
       onError: (error) {
         print('Game subscription error: $error');
-        _handleError('ゲーム状態の監視中にエラーが発生しました');
+        if (mounted) {
+          _handleError('ゲーム状態の監視中にエラーが発生しました');
+        }
       },
     );
   }
@@ -245,13 +291,21 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
     if (!_isMyTurn ||
         _gameBoard.board[index] != ' ' ||
         _gameBoard.winner.isNotEmpty) {
+      print(
+          'Invalid tap: isMyTurn=$_isMyTurn, board[index]=${_gameBoard.board[index]}, winner=${_gameBoard.winner}');
       return;
     }
 
     try {
-      // マスを更新
+      // 状態更新前の変数保存
+      final wasMyTurn = _isMyTurn;
+      final currentPlayerMark = _playerMark;
+
+      print('Handling tap: index=$index, playerMark=$currentPlayerMark');
+
+      // マスを更新（ローカル状態）
       setState(() {
-        _gameBoard.board[index] = _playerMark;
+        _gameBoard.board[index] = currentPlayerMark;
         _isMyTurn = false;
         if (!_isAiMode) {
           _isWaitingForOpponent = true;
@@ -267,9 +321,20 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
       } else {
         // オンラインモードの場合
         try {
-          await _updateGameState(index);
+          if (wasMyTurn) {
+            // 自分のターンだった場合のみFirestoreを更新
+            await _updateGameState(index);
+            print(
+                'Game state updated successfully: index=$index, playerMark=$currentPlayerMark');
+          }
         } catch (e) {
           print('Failed to update game state: $e');
+          // Firestoreの更新に失敗した場合、ローカルの状態を元に戻す
+          setState(() {
+            _gameBoard.board[index] = ' ';
+            _isMyTurn = true;
+            _isWaitingForOpponent = false;
+          });
           _switchToAIMode();
           if (_gameBoard.winner.isEmpty) {
             _executeAIMove();
@@ -287,18 +352,48 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
     }
   }
 
-  // ゲーム状態をFirestoreに更新
+// ゲーム状態をFirestoreに更新
   Future<void> _updateGameState(int moveIndex) async {
     final opponentMark = _playerMark == 'X' ? 'O' : 'X';
 
-    await _gameRef.update({
-      'board': _gameBoard.board,
-      'currentTurn': opponentMark,
-      'lastMove': moveIndex,
-      'winner': _gameBoard.winner,
-      'winningLine': _gameBoard.winningBlocks,
-      'lastUpdated': FieldValue.serverTimestamp(),
-    });
+    print(
+        'Updating game state: index=$moveIndex, playerMark=$_playerMark, board=${_gameBoard.board}');
+
+    try {
+      // 現在のゲーム状態を取得して確認（デバッグ用）
+      final currentState = await _gameRef.get();
+      if (currentState.exists) {
+        print('Current Firestore state before update: ${currentState.data()}');
+
+        // 現在のターンを確認
+        final data = currentState.data() as Map<String, dynamic>;
+        final currentTurn = data['currentTurn'] as String?;
+
+        if (currentTurn != _playerMark) {
+          print(
+              'Warning: currentTurn=$currentTurn, but playerMark=$_playerMark');
+          // ここでは警告するだけで処理を続行
+        }
+      } else {
+        print('Game document does not exist in Firestore');
+        throw Exception('ゲームドキュメントが存在しません');
+      }
+
+      // Firestoreの更新を実行
+      await _gameRef.update({
+        'board': _gameBoard.board,
+        'currentTurn': opponentMark,
+        'lastMove': moveIndex,
+        'winner': _gameBoard.winner,
+        'winningLine': _gameBoard.winningBlocks,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+
+      print('Game state updated in Firestore');
+    } catch (e) {
+      print('Firestore update error: $e');
+      throw e; // エラーを再スロー
+    }
   }
 
   // 勝敗確認
