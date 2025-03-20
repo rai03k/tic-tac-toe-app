@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
-import 'dart:math';
 import 'package:uuid/uuid.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
@@ -30,35 +29,22 @@ class _MatchingScreenState extends State<MatchingScreen>
 
   // タイマー管理
   Timer? _matchingTimer;
-  Timer? _backupTimer;
   Timer? _animationTimer;
 
-  // マッチングタイムアウトの秒数
-  static const int _timeoutSeconds = 60; // タイムアウトを60秒に延長
+  // マッチングタイムアウトの秒数（ランダムマッチング用）
+  static const int _timeoutSeconds = 30; // 30秒にタイムアウトを設定
 
   // Firestore インスタンス
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // マッチングに使用するドキュメントリファレンス
   DocumentReference? _matchDocumentRef;
+  // マッチング相手のUUID
+  String? _opponentId;
   // Firestore のストリーム購読を管理するための変数
   StreamSubscription? _matchSubscription;
   // プレイヤーID（UUID を生成）
   final String _playerId = const Uuid().v4();
-  // ランダム処理用のインスタンス
-  final Random _random = Random();
-
-  // AIプレイヤー名のリスト
-  final List<String> aiPlayerNames = [
-    'AIテスト',
-  ];
-
-  // 対戦相手の名前
-  String opponentName = '';
-  // プレイヤーが先攻か後攻かを示すマーク
-  String _playerMark = '';
-  // 自分が先攻かどうかを示すフラグ
-  bool _isPlayerFirst = false;
 
   // デバッグ用ログ関数
   void _debugLog(String message) {
@@ -69,7 +55,7 @@ class _MatchingScreenState extends State<MatchingScreen>
   void initState() {
     super.initState();
     _startAnimationTimer(); // アニメーションのタイマー開始
-    _startBackupTimer();    // データバックアップ用のタイマー開始
+    _checkConnectivity(); // インターネット接続の確認
     _setupConnectivitySubscription(); // ネットワーク状態の監視を開始
   }
 
@@ -82,14 +68,19 @@ class _MatchingScreenState extends State<MatchingScreen>
     });
   }
 
-  // バックアップ用のタイマーを設定
-  void _startBackupTimer() {
-    _backupTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-      if (_matchDocumentRef != null) {
-        _debugLog('Running backup for match: ${_matchDocumentRef!.id}');
-        _backupMatchData(); // マッチデータのバックアップを行う
+  // インターネット接続を確認
+  Future<bool> _checkConnectivity() async {
+    var connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult == ConnectivityResult.none) {
+      _debugLog('No internet connection');
+      if (!_hasShownError) {
+        setState(() => errorMessage = 'ネットワーク接続がありません');
+        _showErrorDialog('ネットワーク接続がありません');
+        _hasShownError = true;
       }
-    });
+      return false;
+    }
+    return true;
   }
 
   // ネットワーク状態の監視をセットアップ
@@ -98,7 +89,7 @@ class _MatchingScreenState extends State<MatchingScreen>
       _debugLog('Network connectivity status: $connectivityResult');
       if (connectivityResult == ConnectivityResult.none) {
         // ネットワーク接続がない場合のエラーハンドリング
-        if (isRandom && !_hasShownError) {
+        if (!_hasShownError) {
           setState(() => errorMessage = 'ネットワーク接続がありません');
           _showErrorDialog('ネットワーク接続がありません');
           _hasShownError = true;
@@ -122,7 +113,7 @@ class _MatchingScreenState extends State<MatchingScreen>
       if (isRandom) {
         _startRandomMatching(); // ランダムマッチングを開始
       } else if (matchCode != null) {
-        _joinMatchWithCode(matchCode!); // コード指定マッチングに参加
+        _startCodeMatching(matchCode!); // コード指定マッチングを開始
       }
     } else {
       _debugLog('Invalid arguments passed to MatchingScreen');
@@ -130,291 +121,333 @@ class _MatchingScreenState extends State<MatchingScreen>
     }
   }
 
+  // 自分のIDで既存のエントリーを削除するメソッド
+  Future<void> _cleanupOwnEntries() async {
+    try {
+      // 自分のIDで既存のエントリーを検索
+      final snapshot = await _firestore.collection('matching').get();
+
+      for (var doc in snapshot.docs) {
+        try {
+          final data = doc.data();
+          final playerId = data['playerId'] as String?;
+
+          // 自分のIDのエントリーを見つけたら削除
+          if (playerId == _playerId) {
+            await doc.reference.delete();
+            _debugLog('Removed existing entry for current player: ${doc.id}');
+          }
+        } catch (e) {
+          _debugLog('Error checking document: $e');
+        }
+      }
+    } catch (e) {
+      _debugLog('Error cleaning up own entries: $e');
+    }
+  }
+
   // ランダムマッチングを開始
   Future<void> _startRandomMatching() async {
     try {
+      if (!await _checkConnectivity()) return;
+
       _debugLog('Starting random matching...');
-      // Firestore でマッチング検索のクエリを構築
-      Query matchQuery = _firestore
-          .collection('matches')
-          .where('status', isEqualTo: 'waiting')
-          .where('player2', isNull: true);
 
-      // 利用可能なマッチのクエリを取得
-      final availableMatchQuery = await matchQuery.limit(1).get();
+      // 古いマッチングデータをクリーンアップ
+      await _cleanupOldMatchingData();
 
-      _debugLog('Found ${availableMatchQuery.docs.length} available matches for random matching');
+      // 自分のIDに関連する古いエントリーをクリーンアップ
+      await _cleanupOwnEntries();
 
-      if (availableMatchQuery.docs.isNotEmpty && !isMatched) {
-        // 利用可能なマッチが存在する場合、それに参加
-        final matchData = availableMatchQuery.docs.first.data() as Map<String, dynamic>;
-        if (matchData['player1'] != _playerId) { // 自分自身のマッチではないことを確認
-          _matchDocumentRef = availableMatchQuery.docs.first.reference;
-          _debugLog('Joining available match with ID: ${_matchDocumentRef!.id}');
-          await _joinMatch(_matchDocumentRef!);
-        } else {
-          _debugLog('Skipping own match with ID: ${availableMatchQuery.docs.first.id}');
+      // Firestoreに自分のUUIDを登録(コードなし=null)
+      _matchDocumentRef = await _firestore.collection('matching').add({
+        'playerId': _playerId,
+        'code': null, // コードなし(ランダムマッチング)
+        'createdAt': FieldValue.serverTimestamp(),
+        'status': 'waiting'
+      });
+
+      _debugLog(
+          'Registered for random matching with ID: ${_matchDocumentRef!.id}');
+
+      // マッチング状態を監視する
+      _listenForMatches();
+
+      // 30秒のタイムアウトタイマーを設定
+      _matchingTimer = Timer(Duration(seconds: _timeoutSeconds), () {
+        if (!isMatched) {
+          _debugLog('Random matching timed out after $_timeoutSeconds seconds');
+          _timeoutMatchingProcess();
         }
-      } else if (!isMatched) {
-        // 利用可能なマッチがない場合、新しいマッチを作成
-        _debugLog('No available match found, creating a new match');
-        _matchDocumentRef = await _createNewMatch();
-
-        setState(() {
-          _playerMark = 'X'; // 先攻に設定
-          _isPlayerFirst = true; // 先攻に設定
-        });
-
-        _debugLog('Created new match - PlayerMark: $_playerMark, IsFirst: $_isPlayerFirst');
-      }
-
-      _listenForMatchUpdates();
+      });
     } catch (e) {
       _debugLog('Error in random matching: $e');
       _handleMatchingError(e.toString());
     }
   }
 
-  // 指定されたコードでのマッチに参加
-  Future<void> _joinMatchWithCode(String code) async {
+  Future<void> _cleanupOldMatchingData() async {
     try {
-      while (!isMatched) {
-        _debugLog('Attempting to join match with code: $code');
-        // Firestore でマッチング待機状態のドキュメントを検索
-        final matchQuery = await _firestore
-            .collection('matches')
-            .where('code', isEqualTo: code)
-            .where('status', isEqualTo: 'waiting')
-            .limit(1)
-            .get();
+      final firestore = FirebaseFirestore.instance;
+      // シンプルにすべてのマッチングデータを取得
+      final snapshot = await firestore.collection('matching').get();
 
-        _debugLog('Found ${matchQuery.docs.length} matches with code: $code');
+      // 1日以上前のデータを削除
+      final oneDayAgo = DateTime.now().subtract(const Duration(days: 1));
 
-        if (matchQuery.docs.isNotEmpty) {
-          _matchDocumentRef = matchQuery.docs.first.reference;
-          _debugLog('Joining match with ID: ${_matchDocumentRef!.id}');
-          await _joinMatch(_matchDocumentRef!); // マッチに参加
-          break;
+      int count = 0;
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final createdAt = data['createdAt'] as Timestamp?;
+
+        // タイムスタンプが存在し、1日以上前の場合は削除
+        if (createdAt != null && createdAt.toDate().isBefore(oneDayAgo)) {
+          await doc.reference.delete();
+          count++;
         }
-
-        await Future.delayed(const Duration(seconds: 2)); // 2秒待機して再試行
       }
+
+      print('Cleaned up $count old matching entries');
     } catch (e) {
-      _debugLog('Error joining match with code: $e');
+      print('Error cleaning up old matching data: $e');
     }
   }
 
-  // マッチに参加する
-  Future<void> _joinMatch(DocumentReference matchRef) async {
+  // コード指定マッチングを開始
+  Future<void> _startCodeMatching(String code) async {
     try {
-      await _firestore.runTransaction((transaction) async {
-        final snapshot = await transaction.get(matchRef);
-        final data = snapshot.data() as Map<String, dynamic>?;
+      if (!await _checkConnectivity()) return;
 
-        if (snapshot.exists && data != null && data['status'] == 'waiting' && data['player2'] == null) {
-          _debugLog('Joining as player2, setting up roles...');
+      _debugLog('Starting code matching with code: $code');
 
-          transaction.update(matchRef, {
-            'player2': _playerId,
-            'status': 'matched',
-            'matchedAt': FieldValue.serverTimestamp(),
-            'playerX': data['player1'],  // 既存のplayer1を先行(X)に設定
-            'playerO': _playerId,        // 参加者を後攻(O)に設定
-            'turn': 'X',
-            'board': List.filled(9, ' '),
-          });
+      // 自分のIDに関連する古いエントリーをクリーンアップ
+      await _cleanupOwnEntries();
 
-          _debugLog('Player2 role assigned - Mark: O, First: false');
-        } else {
-          throw Exception('Match is no longer available or already filled');
-        }
-      });
-
-      // トランザクション成功後にStateを更新
-      setState(() {
-        isMatched = true;
-        opponentName = '相手';
-        _playerMark = 'O';      // 参加者は必ず後攻
-        _isPlayerFirst = false; // 参加者は必ず後攻
-      });
-
-      _debugLog('Join successful - PlayerMark: $_playerMark, IsFirst: $_isPlayerFirst');
-    } catch (e) {
-      _debugLog('Error in _joinMatch: $e');
-      _handleMatchingError(e.toString());
-      return;
-    }
-  }
-
-  // 新しいマッチを作成
-  Future<DocumentReference> _createNewMatch() async {
-    try {
-      _debugLog('Creating new match as player1...');
-
-      final newMatch = await _firestore.collection('matches').add({
-        'player1': _playerId,
-        'player2': null,
-        'playerX': _playerId,  // 作成者を先行(X)に設定
-        'playerO': null,
-        'status': 'waiting',
-        'code': isRandom ? null : matchCode,
+      // Firestoreに自分のUUIDとコードを登録
+      _matchDocumentRef = await _firestore.collection('matching').add({
+        'playerId': _playerId,
+        'code': code,
         'createdAt': FieldValue.serverTimestamp(),
-        'turn': 'X',
-        'board': List.filled(9, ' '),
+        'status': 'waiting'
       });
 
-      setState(() {
-        _playerMark = 'X';      // 作成者は必ず先行
-        _isPlayerFirst = true;  // 作成者は必ず先行
-        opponentName = '相手';
-      });
+      _debugLog(
+          'Registered for code matching with ID: ${_matchDocumentRef!.id}');
 
-      _debugLog('New match created - PlayerMark: $_playerMark, IsFirst: $_isPlayerFirst');
-
-      return newMatch;
+      // マッチング状態を監視する
+      _listenForMatches();
     } catch (e) {
-      _debugLog('Error in _createNewMatch: $e');
-      rethrow;
+      _debugLog('Error in code matching: $e');
+      _handleMatchingError(e.toString());
     }
   }
 
-  // マッチングの更新をリッスンして反映
-  void _listenForMatchUpdates() {
-    _debugLog('Starting match updates listener...');
-    _matchSubscription = _matchDocumentRef?.snapshots().listen(
-          (snapshot) {
-        if (!snapshot.exists) {
-          _debugLog('Match document no longer exists');
-          _handleMatchingError('マッチが存在しません');
-          return;
-        }
+  void _listenForMatches() {
+    _debugLog('Setting up match listener...');
 
-        final data = snapshot.data() as Map<String, dynamic>?;
-        if (data == null) return;
+    _matchSubscription =
+        _firestore.collection('matching').snapshots().listen((snapshot) {
+      if (isMatched) return; // すでにマッチングしていたら処理しない
 
-        _debugLog('Match update received - Status: ${data['status']}');
-        _debugLog('Current playerX: ${data['playerX']}, playerO: ${data['playerO']}');
-        _debugLog('My playerId: $_playerId');
+      // 有効なマッチを探す
+      QueryDocumentSnapshot? matchDoc = null;
 
-        if (data['status'] == 'matched' && !isMatched) {
-          // 自分のプレイヤーIDと役割を比較
-          String myRole;
-          bool amIFirst;
-
-          if (data['playerX'] == _playerId) {
-            myRole = 'X';
-            amIFirst = true;
-            _debugLog('I am playerX (first player)');
-          } else if (data['playerO'] == _playerId) {
-            myRole = 'O';
-            amIFirst = false;
-            _debugLog('I am playerO (second player)');
-          } else {
-            _debugLog('Error: Could not determine player role');
-            return;
+      for (var doc in snapshot.docs) {
+        try {
+          // 自分が作成したドキュメントは明示的にスキップ
+          if (doc.id == _matchDocumentRef?.id) {
+            _debugLog('Skipping own document: ${doc.id}');
+            continue;
           }
 
-          setState(() {
-            isMatched = true;
-            opponentName = '相手';
-            _playerMark = myRole;
-            _isPlayerFirst = amIFirst;
-          });
+          final data = doc.data() as Map<String, dynamic>;
+          final otherPlayerId = data['playerId'] as String?;
 
-          _debugLog('Match state updated - Mark: $_playerMark, IsFirst: $_isPlayerFirst');
-          _matchingTimer?.cancel();
-
-          if (mounted) {
-            _navigateToGameScreen(); // マッチが成立したらゲーム画面に遷移
+          // 自分のIDを持つ他のドキュメントもスキップ (重要)
+          if (otherPlayerId == null || otherPlayerId == _playerId) {
+            _debugLog('Skipping invalid playerID: $otherPlayerId');
+            continue;
           }
+
+          final status = data['status'] as String?;
+          if (status != 'waiting') {
+            continue;
+          }
+
+          // ランダムマッチングの場合
+          if (isRandom) {
+            final code = data['code'];
+            if (code != null) {
+              continue; // codeがnullでない場合はスキップ
+            }
+            matchDoc = doc;
+            break;
+          }
+          // コード指定マッチングの場合
+          else if (!isRandom && matchCode != null) {
+            final code = data['code'];
+            if (code != matchCode) {
+              continue; // コードが一致しない場合はスキップ
+            }
+            matchDoc = doc;
+            break;
+          }
+        } catch (e) {
+          _debugLog('Error processing doc: $e');
         }
-      },
-      onError: (error) {
-        _debugLog('Error in match updates listener: $error');
-        _handleMatchingError(error.toString());
-      },
-    );
+      }
+
+      // マッチが見つかった場合
+      if (matchDoc != null) {
+        try {
+          final data = matchDoc.data() as Map<String, dynamic>;
+          final otherPlayerId = data['playerId'] as String?;
+
+          if (otherPlayerId != null && otherPlayerId != _playerId) {
+            _opponentId = otherPlayerId;
+            _debugLog('Match found! Opponent ID: $_opponentId');
+
+            // マッチング相手のドキュメントを更新して他の人とマッチングしないようにする
+            matchDoc.reference.update(
+                {'status': 'matched', 'matchedWith': _playerId}).then((_) {
+              // 自分のドキュメントも更新
+              _matchDocumentRef?.update(
+                  {'status': 'matched', 'matchedWith': _opponentId}).then((_) {
+                // マッチング成立
+                _matchFound();
+              });
+            }).catchError((e) {
+              _debugLog('Error updating match status: $e');
+            });
+          }
+        } catch (e) {
+          _debugLog('Error processing match: $e');
+        }
+      }
+    }, onError: (error) {
+      _debugLog('Error in match listener: $error');
+      _handleMatchingError(error.toString());
+    });
   }
 
-  // ゲーム画面に遷移する
-  void _navigateToGameScreen() {
-    if (mounted && _matchDocumentRef != null && isMatched) {
-      Navigator.pushReplacementNamed(
-        context,
-        '/online-game',
-        arguments: {
-          'gameId': _matchDocumentRef!.id,
-          'isAiMode': false,
-          'opponentName': opponentName,
-          'playerMark': _playerMark,
-          'isPlayerFirst': _isPlayerFirst,
-        },
+  // マッチングが有効かどうかを確認するヘルパー関数
+  bool _isValidMatch() {
+    return isMatched && _opponentId != null && _opponentId != _playerId;
+  }
+
+  // _matchFound メソッドの修正
+  void _matchFound() {
+    if (isMatched) return; // 既にマッチング済みの場合は処理しない
+    if (_opponentId == null) return; // 相手がいない場合は処理しない
+    if (_opponentId == _playerId) return; // 自分自身とのマッチングを防止
+
+    _debugLog('Valid match found with opponent ID: $_opponentId');
+
+    setState(() {
+      isMatched = true;
+    });
+
+    _matchingTimer?.cancel(); // タイムアウトタイマーをキャンセル
+
+    // ゲーム画面への遷移
+    _navigateToGameScreen();
+  }
+
+  // タイムアウト時の処理（ランダムマッチングのみ）
+  void _timeoutMatchingProcess() {
+    if (isMatched) return; // 既にマッチング済みの場合は処理しない
+
+    _debugLog('Timeout occurred, returning to menu');
+    _forceRemoveMatchEntry();
+
+    _matchSubscription?.cancel();
+
+    // Firestoreからエントリーを削除
+    _matchDocumentRef
+        ?.delete()
+        .catchError((e) => _debugLog('Error removing entry: $e'));
+
+    _matchSubscription?.cancel();
+
+    // タイムアウトのアラートを表示してからメニューに戻る
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('マッチングタイムアウト'),
+          content: const Text('対戦相手が見つかりませんでした。'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // ダイアログを閉じる
+                Navigator.of(context).pop(); // マッチング画面を閉じてメニューに戻る
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
       );
     }
   }
 
-  // タイムアウトや利用可能なマッチがない場合、AI対戦に切り替え
-  void _switchToAIMatch() {
-    _debugLog('Switching to AI match due to timeout or no available match');
-    _matchDocumentRef?.update({
-      'status': 'cancelled',
-      'lastActivity': FieldValue.serverTimestamp(),
-    }).catchError((e) => _debugLog('Cleanup error: $e'));
+  // Firestoreからマッチングエントリーを削除
+  void _removeMatchEntries() {
+    // 自分のエントリーを削除
+    if (_matchDocumentRef != null) {
+      _matchDocumentRef!.delete().then((_) {
+        _debugLog('Successfully removed own match entry');
+      }).catchError((e) {
+        _debugLog('Error removing own entry: $e');
+      });
+    }
 
-    _matchingTimer?.cancel();
-    _matchSubscription?.cancel();
+    // マッチング相手のエントリーを検索して削除
+    if (_opponentId != null) {
+      _firestore.collection('matching').get().then((snapshot) {
+        for (var doc in snapshot.docs) {
+          try {
+            final data = doc.data();
+            final playerId = data['playerId'] as String?;
 
-    setState(() {
-      isMatched = true;
-      opponentName = '相手'; // AIの場合も「相手」に統一
-      _playerMark = 'X';   // AIモードでは必ずプレイヤーが先行
-      _isPlayerFirst = true;
-    });
+            if (playerId == _opponentId) {
+              doc.reference.delete().then((_) {
+                _debugLog(
+                    'Successfully removed opponent match entry: ${doc.id}');
+              });
+            }
+          } catch (e) {
+            _debugLog('Error checking opponent document: $e');
+          }
+        }
+      }).catchError((e) => _debugLog('Error finding opponent entries: $e'));
+    }
+  }
 
-    _debugLog('Match status updated to isMatched: $isMatched with opponent: $opponentName');
-
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
+  // ゲーム画面に遷移する
+  void _navigateToGameScreen() {
+    if (mounted) {
+      if (_opponentId == null) {
+        // 相手が見つからない場合は遷移しない（AIモードも無し）
+        return;
+      } else {
+        // 通常の対戦（相手が見つかった場合のみ遷移）
         Navigator.pushReplacementNamed(
           context,
           '/online-game',
           arguments: {
-            'gameId': 'ai-${DateTime.now().millisecondsSinceEpoch}',
-            'isAiMode': true,
-            'opponentName': '相手', // 「相手」に統一
-            'playerMark': _playerMark,
-            'isPlayerFirst': _isPlayerFirst,
+            'playerId': _playerId,
+            'opponentId': _opponentId,
+            'isRandom': isRandom,
           },
         );
       }
-    });
-  }
-
-  // マッチデータのバックアップを Firestore に保存
-  Future<void> _backupMatchData() async {
-    try {
-      final snapshot = await _matchDocumentRef!.get();
-      if (snapshot.exists) {
-        _debugLog('Backing up match data for match ID: ${_matchDocumentRef!.id}');
-        await _firestore.collection('match_backups').add({
-          'matchId': _matchDocumentRef!.id,
-          'data': snapshot.data(),
-          'timestamp': FieldValue.serverTimestamp(),
-        });
-      }
-    } catch (e) {
-      _debugLog('Backup failed: $e');
     }
   }
 
   // マッチングエラーを処理
   void _handleMatchingError(String error) {
     _debugLog('Handling matching error: $error');
-
-    if (!isRandom) {
-      setState(() => errorMessage = null);
-      return;
-    }
 
     if (!_hasShownError) {
       setState(() {
@@ -427,7 +460,7 @@ class _MatchingScreenState extends State<MatchingScreen>
 
   // エラーダイアログを表示
   void _showErrorDialog(String message) {
-    if (!mounted || !isRandom) return;
+    if (!mounted) return;
 
     _debugLog('Showing error dialog: $message');
 
@@ -451,31 +484,28 @@ class _MatchingScreenState extends State<MatchingScreen>
     );
   }
 
-  // マッチをキャンセル
-  void _cancelMatch() {
-    if (_matchDocumentRef != null) {
-      _debugLog('Cancelling match with ID: ${_matchDocumentRef!.id}');
-      _matchDocumentRef?.update({
-        'status': 'cancelled',
-        'lastActivity': FieldValue.serverTimestamp(),
-      }).catchError((e) => _debugLog('Cleanup error: $e'));
-    }
-  }
-
   @override
   void dispose() {
     _debugLog('Disposing MatchingScreen, cancelling timers and subscriptions');
     // 全てのタイマーとストリーム購読をキャンセル
     _matchingTimer?.cancel();
-    _backupTimer?.cancel();
     _animationTimer?.cancel();
     _matchSubscription?.cancel();
 
-    if (!isMatched && _matchDocumentRef != null) {
-      _cancelMatch(); // マッチングが成立していない場合はマッチをキャンセル
-    }
+    // マッチング削除を確実に実行（修正）
+    _forceRemoveMatchEntry();
 
     super.dispose();
+  }
+
+  // マッチングエントリーを強制的に削除する処理（追加）
+  void _forceRemoveMatchEntry() {
+    if (_matchDocumentRef != null) {
+      _matchDocumentRef!
+          .delete()
+          .then((_) => _debugLog('Successfully removed matching entry'))
+          .catchError((e) => _debugLog('Error removing entry: $e'));
+    }
   }
 
   @override
@@ -489,9 +519,15 @@ class _MatchingScreenState extends State<MatchingScreen>
             _debugLog('User pressed back button');
             // 戻るボタンが押されたときの処理
             _matchingTimer?.cancel();
-            _backupTimer?.cancel();
             _matchSubscription?.cancel();
-            if (!isMatched) _cancelMatch();
+
+            // Firestoreからエントリーを削除
+            if (!isMatched && _matchDocumentRef != null) {
+              _matchDocumentRef
+                  ?.delete()
+                  .catchError((e) => _debugLog('Error removing entry: $e'));
+            }
+
             Navigator.of(context).pop();
           },
         ),
@@ -500,7 +536,7 @@ class _MatchingScreenState extends State<MatchingScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (errorMessage != null && isRandom)
+            if (errorMessage != null)
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Text(
@@ -509,33 +545,34 @@ class _MatchingScreenState extends State<MatchingScreen>
                   textAlign: TextAlign.center,
                 ),
               ),
-            if (errorMessage == null || !isRandom) ...[
+            if (errorMessage == null) ...[
               AnimatedOpacity(
                 opacity: _visible ? 1.0 : 0.0,
                 duration: const Duration(seconds: 1),
                 child: isRandom
                     ? const Text(
-                  '対戦相手を探しています...',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                )
+                        '対戦相手を探しています...',
+                        style: TextStyle(
+                            fontSize: 24, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      )
                     : Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      'コード: $matchCode',
-                      style: const TextStyle(
-                          fontSize: 24, fontWeight: FontWeight.bold),
-                      textAlign: TextAlign.center,
-                    ),
-                    const Text(
-                      '対戦相手を待っています...',
-                      style: TextStyle(
-                          fontSize: 24, fontWeight: FontWeight.bold),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            'コード: $matchCode',
+                            style: const TextStyle(
+                                fontSize: 24, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                          ),
+                          const Text(
+                            '対戦相手を待っています...',
+                            style: TextStyle(
+                                fontSize: 24, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
               ),
               const SizedBox(height: 20),
               const CircularProgressIndicator(), // マッチング中のインジケーター
@@ -545,6 +582,14 @@ class _MatchingScreenState extends State<MatchingScreen>
                   child: Text(
                     '対戦相手が見つかりました！',
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              if (isRandom && !isMatched)
+                Padding(
+                  padding: const EdgeInsets.only(top: 20),
+                  child: Text(
+                    '${_timeoutSeconds}秒後にタイムアウトします',
+                    style: const TextStyle(fontSize: 16),
                   ),
                 ),
             ],
