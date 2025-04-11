@@ -76,7 +76,7 @@ class GameBoard {
         maxDepth = 3;
         break;
       case AIDifficulty.hard:
-        maxDepth = 5; // より深く先読みする
+        maxDepth = 6; // より深く先読みする
         break;
     }
   }
@@ -451,100 +451,97 @@ class GameBoard {
     return simulatedBoard.contains(' ') ? '' : 'Draw';
   }
 
-  // 盤面の良さを数値評価する（ヒューリスティック評価関数）
+// 盤面の良さを数値評価する（ヒューリスティック評価関数） - 改善案を含む
   int _evaluatePosition(List<String> simulatedBoard, List<int> simulatedXMoves,
       List<int> simulatedOMoves) {
     int score = 0;
     const List<List<int>> winPatterns = [
-      [0, 1, 2], [3, 4, 5], [6, 7, 8], // 横の列
-      [0, 3, 6], [1, 4, 7], [2, 5, 8], // 縦の列
-      [0, 4, 8], [2, 4, 6] // 斜めの列
+      [0, 1, 2], [3, 4, 5], [6, 7, 8], // 横
+      [0, 3, 6], [1, 4, 7], [2, 5, 8], // 縦
+      [0, 4, 8], [2, 4, 6] // 斜め
     ];
 
-    // 各勝利パターンについて評価
+    int aiPotentialWins = 0; // AIがリーチ or 勝利しているライン数
+    int playerPotentialWins = 0; // Playerがリーチ or 勝利しているライン数
+
     for (var pattern in winPatterns) {
-      int countO = 0; // ○の数
-      int countX = 0; // ×の数
-      int emptyPos = -1; // 空きマスの位置
-
+      int countO = 0;
+      int countX = 0;
+      List<int> emptyPos = [];
       for (int pos in pattern) {
-        if (simulatedBoard[pos] == '○') {
+        if (simulatedBoard[pos] == '○')
           countO++;
-        } else if (simulatedBoard[pos] == '×') {
+        else if (simulatedBoard[pos] == '×')
           countX++;
-        } else {
-          emptyPos = pos;
-        }
+        else
+          emptyPos.add(pos);
       }
 
-      // スコア計算
+      // --- AI ('○') の評価 ---
+      if (countO == 3) return 100; // AI勝利 (評価関数内での早期リターン)
       if (countO == 2 && countX == 0) {
-        score += 10; // AIが2つ並んでいて、もう1つで勝ちの場合
-
-        // この位置に置くとAIが勝つかどうかをチェック
-        if (emptyPos != -1) {
-          // 次に消えるのがこのパターンの一部か確認
-          if (simulatedOMoves.length >= 3) {
-            int nextToRemove = simulatedOMoves[0];
-            // 消えるマークがこのパターンの一部でなければさらに高評価
-            if (!pattern.contains(nextToRemove)) {
-              score += 15;
-            }
-          }
+        // AIのリーチ
+        score += 15; // リーチは高評価
+        aiPotentialWins++;
+        // 消えるマークがリーチを構成していないなら、さらに高評価
+        if (simulatedOMoves.length >= 3 &&
+            !pattern.contains(simulatedOMoves[0])) {
+          score += 10;
         }
-      }
-
-      if (countX == 2 && countO == 0) {
-        score -= 8; // プレイヤーが2つ並んでいて、もう1つで勝ちの場合（阻止すべき）
-
-        // この位置に置くとプレイヤーが勝つのを阻止できるかチェック
-        if (emptyPos != -1) {
-          // 次に消えるプレイヤーのマークがこのパターンの一部か確認
-          if (simulatedXMoves.length >= 3) {
-            int nextToRemove = simulatedXMoves[0];
-            // 消えるマークがこのパターンの一部ならば、阻止の優先度は低い
-            if (pattern.contains(nextToRemove)) {
-              score += 5; // 消えるのでそれほど脅威ではない
-            } else {
-              score -= 15; // 消えないのでより脅威
-            }
-          }
-        }
-      }
-    }
-
-    // 中央のマスを取ることで戦略的優位性を得る
-    if (simulatedBoard[4] == '○') {
-      score += 4;
-    } else if (simulatedBoard[4] == '×') {
-      score -= 4;
-    }
-
-    // 角のマスも価値がある
-    for (int corner in [0, 2, 6, 8]) {
-      if (simulatedBoard[corner] == '○') {
+      } else if (countO == 1 && countX == 0) {
+        // AIの潜在的なライン
         score += 3;
-      } else if (simulatedBoard[corner] == '×') {
-        score -= 3;
+      }
+
+      // --- プレイヤー ('×') の評価 ---
+      if (countX == 3) return -100; // Player勝利 (評価関数内での早期リターン)
+      if (countX == 2 && countO == 0) {
+        // Playerのリーチ
+        score -= 20; // 阻止すべき！
+        playerPotentialWins++;
+        // 消えるマークがリーチを構成していないなら、さらに脅威
+        if (simulatedXMoves.length >= 3 &&
+            !pattern.contains(simulatedXMoves[0])) {
+          score -= 15; // より危険なリーチ
+        } else if (simulatedXMoves.length >= 3) {
+          score += 5; // すぐ消えるリーチなら少し安心
+        }
+      } else if (countX == 1 && countO == 0) {
+        // Playerの潜在的なライン
+        score -= 2;
       }
     }
 
-    // 消えるマークに関する特殊戦略
+    // --- ダブルリーチの評価 ---
+    if (aiPotentialWins >= 2) score += 30;
+    if (playerPotentialWins >= 2) score -= 40; // 非常に危険
+
+    // --- 中央と角の評価 (既存のものを少し調整) ---
+    if (simulatedBoard[4] == '○')
+      score += 5;
+    else if (simulatedBoard[4] == '×') score -= 5;
+    for (int corner in [0, 2, 6, 8]) {
+      if (simulatedBoard[corner] == '○')
+        score += 3;
+      else if (simulatedBoard[corner] == '×') score -= 3;
+    }
+
+    // --- 消えるマークの戦略的評価 (改善案) ---
     if (simulatedXMoves.length >= 3) {
+      // プレイヤーのマークが消える場合
       int nextToRemoveX = simulatedXMoves[0];
-      // プレイヤーの消えるマークが有利な位置にある場合
-      if ([0, 2, 4, 6, 8].contains(nextToRemoveX)) {
-        score += 2; // その位置が空くのは有利
-      }
+      if ([0, 2, 4, 6, 8].contains(nextToRemoveX)) score += 4; // 重要マスが空くのは有利
+      // TODO: 消えることで相手のリーチを防げるかの評価
+    }
+    if (simulatedOMoves.length >= 3) {
+      // AIのマークが消える場合
+      int nextToRemoveO = simulatedOMoves[0];
+      if ([0, 2, 4, 6, 8].contains(nextToRemoveO)) score -= 4; // 重要マスが空くのは不利
+      // TODO: 消えることで自分のリーチが作れるかの評価
     }
 
-    if (simulatedOMoves.length >= 3) {
-      int nextToRemoveO = simulatedOMoves[0];
-      // AIの消えるマークが不利な位置にある場合
-      if ([0, 2, 4, 6, 8].contains(nextToRemoveO)) {
-        score -= 2; // その位置が空くのは不利
-      }
-    }
+    // 盤面に空きがない場合は引き分け
+    if (!simulatedBoard.contains(' ')) return 0;
 
     return score;
   }
